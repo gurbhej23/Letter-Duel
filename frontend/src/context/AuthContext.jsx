@@ -4,7 +4,9 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem('letter_duel_token'));
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('letter_duel_token') || sessionStorage.getItem('letter_duel_token');
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,14 +35,21 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = (authToken, userData) => {
-    localStorage.setItem('letter_duel_token', authToken);
+  const login = (authToken, userData, rememberMe = true) => {
+    if (rememberMe) {
+      localStorage.setItem('letter_duel_token', authToken);
+      sessionStorage.removeItem('letter_duel_token');
+    } else {
+      sessionStorage.setItem('letter_duel_token', authToken);
+      localStorage.removeItem('letter_duel_token');
+    }
     setToken(authToken);
     setUser(userData);
   };
 
   const logout = () => {
     localStorage.removeItem('letter_duel_token');
+    sessionStorage.removeItem('letter_duel_token');
     setToken(null);
     setUser(null);
   };

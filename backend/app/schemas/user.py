@@ -8,6 +8,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6)
+    avatar: Optional[str] = "avatar-1"
 
 class UserLogin(BaseModel):
     username_or_email: str

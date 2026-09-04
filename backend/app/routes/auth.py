@@ -29,7 +29,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         username=clean_username,
         email=clean_email,
         password_hash=hash_password(user_in.password),
-        avatar="avatar-1"
+        avatar=user_in.avatar or "avatar-1"
     )
     db.add(user)
     db.commit()
