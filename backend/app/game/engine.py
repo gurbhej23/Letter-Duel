@@ -1,0 +1,379 @@
+import datetime
+from typing import Dict, List, Optional, Tuple
+from app.game.words import validate_word
+
+class LetterDuelGame:
+    def __init__(
+        self,
+        room_code: str,
+        player1_id: int,
+        player2_id: int,
+        player1_username: str,
+        player2_username: str,
+        player1_avatar: str = "avatar-1",
+        player2_avatar: str = "avatar-2",
+        allow_custom_words: bool = True
+    ):
+        self.room_code = room_code
+        self.player1_id = player1_id
+        self.player2_id = player2_id
+        self.player1_username = player1_username
+        self.player2_username = player2_username
+        self.player1_avatar = player1_avatar
+        self.player2_avatar = player2_avatar
+        self.allow_custom_words = allow_custom_words
+
+        # Game state: "WAITING", "READY", "WORD_SELECTION", "PLAYING", "GAME_OVER"
+        self.state = "WAITING"
+        
+        # Readiness
+        self.ready_players: set[int] = set()
+        
+        # Secret words (stored server-side ONLY)
+        self.secret_words: Dict[int, str] = {}
+        self.word_lengths: Dict[int, int] = {}
+        
+        # Turns: player1_id or player2_id
+        self.current_turn_player_id: Optional[int] = None
+        self.turn_number: int = 0
+
+        # Guesses tracking: player_id -> list of guessed letters (upper-case)
+        self.guessed_letters: Dict[int, List[str]] = {
+            player1_id: [],
+            player2_id: []
+        }
+        
+        # Discovered masks for each player's view of opponent's word
+        # player_id -> list of characters (e.g. ['_', 'A', '_', 'A', '_', 'A', '_'])
+        self.discovered_masks: Dict[int, List[str]] = {
+            player1_id: [],
+            player2_id: []
+        }
+
+        # Full word guess tracking: player_id -> count of attempts used (max 3)
+        self.word_guess_attempts: Dict[int, int] = {
+            player1_id: 0,
+            player2_id: 0
+        }
+        self.max_word_guess_attempts: int = 3
+
+        # Game statistics & logs
+        self.history_log: List[dict] = []
+        self.started_at: Optional[datetime.datetime] = None
+        self.ended_at: Optional[datetime.datetime] = None
+        self.winner_id: Optional[int] = None
+        self.win_reason: Optional[str] = None  # "WORD_GUESSED", "ALL_LETTERS_FOUND", "FORFEIT"
+
+        # Rematch requests: set of player IDs who voted for rematch
+        self.rematch_votes: set[int] = set()
+
+    def set_player_ready(self, player_id: int) -> Tuple[bool, str]:
+        """Mark a player as ready. If both are ready, proceed to WORD_SELECTION."""
+        if player_id not in (self.player1_id, self.player2_id):
+            return False, "You are not a player in this room."
+        
+        self.ready_players.add(player_id)
+        if len(self.ready_players) == 2 and self.state in ("WAITING", "READY"):
+            self.state = "WORD_SELECTION"
+            return True, "Both players are ready! Select your secret words."
+        
+        self.state = "READY"
+        return True, "Player marked as ready."
+
+    def lock_word(self, player_id: int, word: str) -> Tuple[bool, str]:
+        """Lock in a secret word for a player."""
+        if player_id not in (self.player1_id, self.player2_id):
+            return False, "Not a player in this duel."
+        
+        if self.state != "WORD_SELECTION":
+            return False, f"Cannot lock word in state: {self.state}"
+        
+        if player_id in self.secret_words:
+            return False, "You have already locked in your secret word."
+
+        is_valid, clean_word, err = validate_word(word, self.allow_custom_words)
+        if not is_valid:
+            return False, err
+
+        self.secret_words[player_id] = clean_word.upper()
+        self.word_lengths[player_id] = len(clean_word)
+
+        # Check if both players have locked words
+        if len(self.secret_words) == 2:
+            self.start_game()
+            return True, "Both words locked! The duel begins!"
+
+        return True, "Secret word locked! Waiting for opponent..."
+
+    def start_game(self):
+        """Initialize playing state and masks."""
+        self.state = "PLAYING"
+        self.started_at = datetime.datetime.utcnow()
+        self.current_turn_player_id = self.player1_id  # Player 1 starts
+        self.turn_number = 1
+
+        # Initialize discovered masks
+        # Player 1 is guessing Player 2's word
+        p2_len = self.word_lengths[self.player2_id]
+        self.discovered_masks[self.player1_id] = ["_"] * p2_len
+
+        # Player 2 is guessing Player 1's word
+        p1_len = self.word_lengths[self.player1_id]
+        self.discovered_masks[self.player2_id] = ["_"] * p1_len
+
+    def guess_letter(self, player_id: int, letter: str) -> Tuple[bool, dict, str]:
+        """
+        Processes a single letter guess.
+        CRITICAL RULE: ONE GUESS per turn -> ALWAYS SWITCH TURN regardless of YES or NO.
+        """
+        if self.state != "PLAYING":
+            return False, {}, "Game is not currently active."
+
+        if player_id != self.current_turn_player_id:
+            return False, {}, "It is not your turn!"
+
+        letter = letter.strip().upper()
+        if len(letter) != 1 or not letter.isalpha():
+            return False, {}, "Guess must be a single alphabetic letter (A-Z)."
+
+        if letter in self.guessed_letters[player_id]:
+            return False, {}, f"Letter '{letter}' has already been guessed by you."
+
+        opponent_id = self.player2_id if player_id == self.player1_id else self.player1_id
+        opponent_word = self.secret_words[opponent_id]
+
+        # Record guess
+        self.guessed_letters[player_id].append(letter)
+
+        # Check if letter is in opponent's word
+        exists = letter in opponent_word
+        positions_revealed: List[int] = []
+
+        if exists:
+            # Reveal all occurrences (e.g. BANANAS -> A reveals all 3)
+            for idx, char in enumerate(opponent_word):
+                if char == letter:
+                    self.discovered_masks[player_id][idx] = letter
+                    positions_revealed.append(idx)
+
+        # Log event
+        log_entry = {
+            "turn": self.turn_number,
+            "player_id": player_id,
+            "username": self.player1_username if player_id == self.player1_id else self.player2_username,
+            "type": "letter_guess",
+            "letter": letter,
+            "result": exists,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+        self.history_log.append(log_entry)
+
+        # Check win condition: if all blank spots are filled
+        if "_" not in self.discovered_masks[player_id]:
+            self.state = "GAME_OVER"
+            self.ended_at = datetime.datetime.utcnow()
+            self.winner_id = player_id
+            self.win_reason = "ALL_LETTERS_FOUND"
+
+            return True, {
+                "letter": letter,
+                "result": exists,
+                "positions": positions_revealed,
+                "discovered_mask": list(self.discovered_masks[player_id]),
+                "game_over": True,
+                "winner_id": player_id,
+                "win_reason": self.win_reason,
+                "next_turn_player_id": None
+            }, "All letters revealed! You Win!"
+
+        # CRITICAL RULE: Switch turn ALWAYS!
+        self.current_turn_player_id = opponent_id
+        self.turn_number += 1
+
+        return True, {
+            "letter": letter,
+            "result": exists,
+            "positions": positions_revealed,
+            "discovered_mask": list(self.discovered_masks[player_id]),
+            "game_over": False,
+            "next_turn_player_id": self.current_turn_player_id
+        }, f"Letter '{letter}' -> {'YES' if exists else 'NO'}. Turn passed to opponent."
+
+    def guess_full_word(self, player_id: int, word: str) -> Tuple[bool, dict, str]:
+        """
+        Attempt a full-word guess.
+        Max 3 attempts per player.
+        If correct -> instant WIN.
+        If incorrect -> Turn switches to opponent, 1 attempt deducted.
+        """
+        if self.state != "PLAYING":
+            return False, {}, "Game is not currently active."
+
+        if player_id != self.current_turn_player_id:
+            return False, {}, "It is not your turn!"
+
+        if self.word_guess_attempts[player_id] >= self.max_word_guess_attempts:
+            return False, {}, f"Maximum full-word guess attempts ({self.max_word_guess_attempts}) reached!"
+
+        clean_word = word.strip().upper()
+        opponent_id = self.player2_id if player_id == self.player1_id else self.player1_id
+        opponent_word = self.secret_words[opponent_id]
+
+        self.word_guess_attempts[player_id] += 1
+        attempts_left = self.max_word_guess_attempts - self.word_guess_attempts[player_id]
+
+        is_correct = (clean_word == opponent_word)
+
+        log_entry = {
+            "turn": self.turn_number,
+            "player_id": player_id,
+            "username": self.player1_username if player_id == self.player1_id else self.player2_username,
+            "type": "word_guess",
+            "word": clean_word,
+            "result": is_correct,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+        self.history_log.append(log_entry)
+
+        if is_correct:
+            # Revealed entire word
+            self.discovered_masks[player_id] = list(opponent_word)
+            self.state = "GAME_OVER"
+            self.ended_at = datetime.datetime.utcnow()
+            self.winner_id = player_id
+            self.win_reason = "WORD_GUESSED"
+
+            return True, {
+                "word": clean_word,
+                "result": True,
+                "attempts_left": attempts_left,
+                "game_over": True,
+                "winner_id": player_id,
+                "win_reason": self.win_reason,
+                "next_turn_player_id": None
+            }, f"Correct! The word was {opponent_word}! You Win!"
+
+        # Incorrect guess -> switch turn!
+        self.current_turn_player_id = opponent_id
+        self.turn_number += 1
+
+        return True, {
+            "word": clean_word,
+            "result": False,
+            "attempts_left": attempts_left,
+            "game_over": False,
+            "next_turn_player_id": self.current_turn_player_id
+        }, f"Incorrect word '{clean_word}'! {attempts_left} full-word attempts remaining. Turn passed."
+
+    def forfeit(self, forfeiting_player_id: int, reason: str = "FORFEIT") -> Tuple[bool, dict]:
+        """Handles player surrender or 60s disconnect forfeit."""
+        if self.state == "GAME_OVER":
+            return False, {}
+
+        self.state = "GAME_OVER"
+        self.ended_at = datetime.datetime.utcnow()
+        self.win_reason = reason
+        self.winner_id = self.player2_id if forfeiting_player_id == self.player1_id else self.player1_id
+
+        return True, {
+            "game_over": True,
+            "winner_id": self.winner_id,
+            "win_reason": reason,
+            "forfeit_player_id": forfeiting_player_id
+        }
+
+    def request_rematch(self, player_id: int) -> Tuple[bool, bool, str]:
+        """
+        Record rematch vote.
+        Returns: (success: bool, rematch_started: bool, message: str)
+        """
+        if self.state != "GAME_OVER":
+            return False, False, "Cannot rematch until game has finished."
+
+        self.rematch_votes.add(player_id)
+        if len(self.rematch_votes) == 2:
+            # Reset for rematch
+            self.reset_for_rematch()
+            return True, True, "Rematch accepted by both players! Select your secret words."
+
+        return True, False, "Rematch requested. Waiting for opponent to accept..."
+
+    def reset_for_rematch(self):
+        """Reset state for a fresh duel round."""
+        self.state = "WORD_SELECTION"
+        self.ready_players = {self.player1_id, self.player2_id}
+        self.secret_words.clear()
+        self.word_lengths.clear()
+        self.current_turn_player_id = None
+        self.turn_number = 0
+        self.guessed_letters = {self.player1_id: [], self.player2_id: []}
+        self.discovered_masks = {self.player1_id: [], self.player2_id: []}
+        self.word_guess_attempts = {self.player1_id: 0, self.player2_id: 0}
+        self.history_log.clear()
+        self.started_at = None
+        self.ended_at = None
+        self.winner_id = None
+        self.win_reason = None
+        self.rematch_votes.clear()
+
+    def get_player_view(self, viewer_player_id: int) -> dict:
+        """
+        IMPORTANT SECURITY:
+        Sanitizes game state so opponent's secret word is NEVER sent across wire
+        until game state is GAME_OVER.
+        """
+        is_p1 = (viewer_player_id == self.player1_id)
+        opponent_id = self.player2_id if is_p1 else self.player1_id
+
+        # Viewer's own secret word (they know what they chose)
+        my_secret_word = self.secret_words.get(viewer_player_id)
+        
+        # Opponent's secret word is ONLY sent when GAME_OVER
+        opponent_secret_word = None
+        if self.state == "GAME_OVER":
+            opponent_secret_word = self.secret_words.get(opponent_id)
+
+        # Discovered mask of opponent's word as seen by the viewer
+        opponent_mask = self.discovered_masks.get(viewer_player_id, [])
+        # Mask of viewer's word as discovered by opponent
+        my_mask = self.discovered_masks.get(opponent_id, [])
+
+        return {
+            "room_code": self.room_code,
+            "state": self.state,
+            "is_my_turn": (self.current_turn_player_id == viewer_player_id),
+            "current_turn_player_id": self.current_turn_player_id,
+            "turn_number": self.turn_number,
+            "player1": {
+                "id": self.player1_id,
+                "username": self.player1_username,
+                "avatar": self.player1_avatar,
+                "is_ready": self.player1_id in self.ready_players,
+                "has_locked_word": self.player1_id in self.secret_words,
+                "word_length": self.word_lengths.get(self.player1_id, 0),
+                "word_guess_attempts_left": self.max_word_guess_attempts - self.word_guess_attempts.get(self.player1_id, 0),
+                "rematch_requested": self.player1_id in self.rematch_votes
+            },
+            "player2": {
+                "id": self.player2_id,
+                "username": self.player2_username,
+                "avatar": self.player2_avatar,
+                "is_ready": self.player2_id in self.ready_players,
+                "has_locked_word": self.player2_id in self.secret_words,
+                "word_length": self.word_lengths.get(self.player2_id, 0),
+                "word_guess_attempts_left": self.max_word_guess_attempts - self.word_guess_attempts.get(self.player2_id, 0),
+                "rematch_requested": self.player2_id in self.rematch_votes
+            } if self.player2_id else None,
+            "my_word": my_secret_word,
+            "my_word_length": self.word_lengths.get(viewer_player_id, 0),
+            "my_mask": my_mask,
+            "opponent_word_length": self.word_lengths.get(opponent_id, 0),
+            "opponent_mask": opponent_mask,
+            "my_guessed_letters": self.guessed_letters.get(viewer_player_id, []),
+            "opponent_guessed_letters": self.guessed_letters.get(opponent_id, []),
+            "opponent_secret_word": opponent_secret_word,  # ONLY when GAME_OVER
+            "winner_id": self.winner_id,
+            "win_reason": self.win_reason,
+            "history_log": self.history_log[-30:],
+            "rematch_votes": list(self.rematch_votes)
+        }
