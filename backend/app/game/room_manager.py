@@ -32,6 +32,9 @@ class RoomSession:
         # Typing indicators: set of player_ids currently typing
         self.typing_players: Set[int] = set()
 
+        # Players who intentionally left or surrendered
+        self.explicit_leaves: Set[int] = set()
+
         # Database Game record ID once match starts
         self.db_game_id: Optional[int] = None
         self.created_at = datetime.datetime.now(datetime.timezone.utc)

@@ -133,6 +133,9 @@ export function SocketProvider({ children }) {
           addToast(data.message, "success");
           setDisconnectTimer(null);
         }
+        else if (type === "player_left") {
+          addToast(data.message || "Player left the room.", "warning");
+        }
         else if (type === "chat_message") {
           setChatMessages(prev => [...prev.slice(-99), data]);
         }
@@ -170,7 +173,17 @@ export function SocketProvider({ children }) {
     };
   }, [token, user?.id, sound, addToast, triggerConfetti]);
 
-  const disconnect = useCallback(() => {
+  const leaveRoom = useCallback((forfeit = false) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(JSON.stringify({
+          type: forfeit ? 'forfeit' : 'leave_room',
+          data: { reason: forfeit ? 'FORFEIT_SURRENDER' : 'PLAYER_LEFT' }
+        }));
+      } catch (e) {
+        console.error("Error sending leave/forfeit event:", e);
+      }
+    }
     activeRoomRef.current = null;
     sessionStorage.removeItem('letter_duel_room_code');
     if (wsRef.current) {
@@ -181,7 +194,19 @@ export function SocketProvider({ children }) {
     setCurrentRoomCode(null);
     setGameState(null);
     setChatMessages([]);
+    setDisconnectTimer(null);
   }, []);
+
+  const disconnect = useCallback(() => {
+    leaveRoom(false);
+  }, [leaveRoom]);
+
+  // Clean up and leave room immediately on logout (when token becomes null)
+  useEffect(() => {
+    if (!token && (connected || wsRef.current || currentRoomCode || activeRoomRef.current)) {
+      leaveRoom(true);
+    }
+  }, [token, connected, currentRoomCode, leaveRoom]);
 
   // Auto-reconnect on mount or page refresh when user token is ready
   useEffect(() => {
@@ -208,6 +233,7 @@ export function SocketProvider({ children }) {
       toasts,
       connectToRoom,
       disconnect,
+      leaveRoom,
       sendEvent,
       addToast
     }}>

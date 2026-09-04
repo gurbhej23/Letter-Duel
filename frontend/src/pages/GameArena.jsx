@@ -14,7 +14,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const { user } = useAuth();
   const sound = useSound();
   const { playClick, playKey, playHit, playMiss } = sound;
-  const { gameState, sendEvent, chatMessages, typingUser, disconnectTimer } = useSocket();
+  const { gameState, sendEvent, chatMessages, typingUser, disconnectTimer, leaveRoom } = useSocket();
 
   const [fullWordInput, setFullWordInput] = useState('');
   const [showFullWordModal, setShowFullWordModal] = useState(false);
@@ -26,17 +26,23 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const lastBeepedSecRef = useRef(null);
 
   // Authoritative server-synchronized countdown timer
+  // Synchronized via server seconds_remaining and monotonic performance.now()
+  // Immune to local PC clock skew (so both players always see 60s countdown)
   useEffect(() => {
-    if (!gameState?.turn_deadline || gameState?.state !== 'PLAYING') {
+    if (gameState?.state !== 'PLAYING') {
       setSecondsLeft(60);
       lastBeepedSecRef.current = null;
       return;
     }
 
+    const baseSeconds = typeof gameState.seconds_remaining === 'number' 
+      ? gameState.seconds_remaining 
+      : 60;
+    const syncTime = performance.now();
+
     const updateTimer = () => {
-      const deadline = new Date(gameState.turn_deadline).getTime();
-      const now = Date.now();
-      const remaining = Math.max(0, Math.ceil((deadline - now) / 1000));
+      const elapsed = (performance.now() - syncTime) / 1000;
+      const remaining = Math.max(0, Math.ceil(baseSeconds - elapsed));
       setSecondsLeft(remaining);
 
       // Warning audio beep during final 5 seconds of own turn (once per second)
@@ -49,9 +55,16 @@ export default function GameArena({ roomCode, onLeaveGame }) {
     };
 
     updateTimer();
-    const interval = setInterval(updateTimer, 500); // 500ms check keeps clock perfectly locked without jitter
+    const interval = setInterval(updateTimer, 250);
     return () => clearInterval(interval);
-  }, [gameState?.turn_deadline, gameState?.state, gameState?.is_my_turn, sound]);
+  }, [
+    gameState?.state, 
+    gameState?.turn_number, 
+    gameState?.current_turn_player_id, 
+    gameState?.seconds_remaining, 
+    gameState?.is_my_turn, 
+    sound
+  ]);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -186,9 +199,15 @@ export default function GameArena({ roomCode, onLeaveGame }) {
 
         <button 
           className="btn btn-secondary btn-sm"
-          onClick={() => { playClick(); onLeaveGame(); }}
+          onClick={() => {
+            playClick();
+            if (window.confirm("Are you sure you want to forfeit and leave the duel?")) {
+              leaveRoom(true);
+            }
+          }}
+          title="Forfeit and return to menu"
         >
-          <Flag size={14} color="#ff2a6d" /> Leave Duel
+          <Flag size={14} color="#ff2a6d" /> Forfeit Duel
         </button>
       </div>
 

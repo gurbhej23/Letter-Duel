@@ -1,15 +1,25 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
+import { useSocket } from '../context/SocketContext';
 import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Sparkles } from 'lucide-react';
 
 export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenFriends, onOpenProfile }) {
   const { user, logout } = useAuth();
   const { isMuted, toggleMute, playClick } = useSound();
+  const { leaveRoom, currentRoomCode } = useSocket();
 
   const handleMute = () => {
     playClick();
     toggleMute();
+  };
+
+  const handleLogout = () => {
+    playClick();
+    if (currentRoomCode) {
+      leaveRoom(true); // Forfeit/leave match cleanly
+    }
+    logout();
   };
 
   return (
@@ -147,7 +157,7 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
 
             <button 
               className="btn btn-secondary btn-icon" 
-              onClick={() => { playClick(); logout(); }}
+              onClick={handleLogout}
               title="Logout"
             >
               <LogOut size={16} color="#ff2a6d" />

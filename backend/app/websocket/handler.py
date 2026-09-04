@@ -436,26 +436,65 @@ async def websocket_room_endpoint(
                     "is_typing": is_typing
                 }, sender_ws=websocket)
 
+            # 8. EXPLICIT LEAVE / FORFEIT / LOGOUT
+            elif msg_type in ("leave_room", "forfeit"):
+                session.explicit_leaves.add(player_id)
+                if player_id in session.disconnect_tasks:
+                    session.disconnect_tasks[player_id].cancel()
+                    session.disconnect_tasks.pop(player_id, None)
+
+                # If actively playing or in word selection, immediately forfeit match
+                if session.game and session.game.state in ("PLAYING", "WORD_SELECTION"):
+                    ok, forfeit_data = session.game.forfeit(player_id, reason="FORFEIT_SURRENDER")
+                    if ok:
+                        cancel_turn_timer(session)
+                        with SessionLocal() as db_session:
+                            persist_game_end_to_db(session, db_session)
+                        
+                        await broadcast_to_room(session, "game_won", {
+                            "winner_id": session.game.winner_id,
+                            "reason": f"{user.username} left/surrendered the duel.",
+                            "game_over": True
+                        })
+                        await broadcast_to_room(session, "chat_message", {
+                            "sender_id": None,
+                            "sender_username": "SYSTEM",
+                            "message": f"🏳️ {user.username} left/surrendered the match.",
+                            "is_system": True,
+                            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        })
+                        await send_sync_states(session)
+                else:
+                    # In LOBBY
+                    if session.game:
+                        session.game.ready_players.discard(player_id)
+                    await broadcast_to_room(session, "player_left", {
+                        "player_id": player_id,
+                        "username": user.username,
+                        "message": f"{user.username} left the room."
+                    })
+                    await send_sync_states(session)
+
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for player {user.username if user else 'unknown'}")
     except Exception as e:
         logger.error(f"WebSocket unhandled error: {e}", exc_info=True)
     finally:
-        # Handle disconnect cleanup and start 60s forfeit timer
+        # Handle disconnect cleanup
         if user and session:
             session.connections.pop(user.id, None)
             session.typing_players.discard(user.id)
             
-            # Notify remaining player
-            await broadcast_to_room(session, "opponent_disconnected", {
-                "player_id": user.id,
-                "username": user.username,
-                "grace_seconds": settings.DISCONNECT_TIMEOUT_SECONDS,
-                "message": f"{user.username} disconnected. Waiting {settings.DISCONNECT_TIMEOUT_SECONDS}s to reconnect..."
-            })
-
-            # If game is playing, initiate 60s forfeit countdown
-            if session.game and session.game.state == "PLAYING":
+            was_explicit = user.id in session.explicit_leaves
+            
+            # Only start the 60s disconnect grace period if it was an unexpected drop during active game
+            if not was_explicit and session.game and session.game.state == "PLAYING":
+                await broadcast_to_room(session, "opponent_disconnected", {
+                    "player_id": user.id,
+                    "username": user.username,
+                    "grace_seconds": settings.DISCONNECT_TIMEOUT_SECONDS,
+                    "message": f"{user.username} disconnected. Waiting {settings.DISCONNECT_TIMEOUT_SECONDS}s to reconnect..."
+                })
                 loop = asyncio.get_event_loop()
                 task = loop.create_task(handle_disconnect_grace_period(session, user.id))
                 session.disconnect_tasks[user.id] = task

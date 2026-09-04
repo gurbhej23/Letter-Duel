@@ -303,6 +303,8 @@ class LetterDuelGame:
             "next_turn_player_id": next_player_id,
             "next_turn_username": next_username,
             "turn_number": self.turn_number,
+            "seconds_remaining": self.turn_timeout_seconds,
+            "server_time": now.isoformat(),
             "turn_deadline": (now + datetime.timedelta(seconds=self.turn_timeout_seconds)).isoformat()
         }, f"Time's up! {timed_out_username} did not guess in time. Turn passed to {next_username}."
 
@@ -380,7 +382,11 @@ class LetterDuelGame:
         my_mask = self.discovered_masks.get(opponent_id, [])
 
         turn_deadline = None
+        seconds_remaining = None
+        now = datetime.datetime.now(datetime.timezone.utc)
         if self.state == "PLAYING" and self.turn_started_at:
+            elapsed = (now - self.turn_started_at).total_seconds()
+            seconds_remaining = max(0, int(round(self.turn_timeout_seconds - elapsed)))
             deadline = self.turn_started_at + datetime.timedelta(seconds=self.turn_timeout_seconds)
             turn_deadline = deadline.isoformat()
 
@@ -393,6 +399,8 @@ class LetterDuelGame:
             "turn_started_at": self.turn_started_at.isoformat() if self.turn_started_at else None,
             "turn_deadline": turn_deadline,
             "turn_timeout_seconds": self.turn_timeout_seconds,
+            "seconds_remaining": seconds_remaining,
+            "server_time": now.isoformat(),
             "player1": {
                 "id": self.player1_id,
                 "username": self.player1_username,
