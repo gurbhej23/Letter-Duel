@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
-import { X, Lock, Mail, User, ShieldCheck, Eye, EyeOff, Sparkles, Zap, Loader2, AlertCircle, Check } from 'lucide-react';
+import { X, Lock, Mail, User, ShieldCheck, Eye, EyeOff, Sparkles, Loader2, AlertCircle, Check } from 'lucide-react';
 
 const AVATAR_OPTIONS = [
   { id: 'avatar-1', label: 'Cyber Knight', icon: '⚔️', gradient: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' },
@@ -9,12 +9,6 @@ const AVATAR_OPTIONS = [
   { id: 'avatar-3', label: 'Void Mage', icon: '🔮', gradient: 'linear-gradient(135deg, #8e2de2 0%, #4a00e0 100%)' },
   { id: 'avatar-4', label: 'Shadow Sniper', icon: '🎯', gradient: 'linear-gradient(135deg, #00e676 0%, #00b0ff 100%)' },
   { id: 'avatar-5', label: 'Titan Guard', icon: '🛡️', gradient: 'linear-gradient(135deg, #ffb300 0%, #ff5e62 100%)' },
-];
-
-const DEMO_ACCOUNTS = [
-  { name: 'Alex', role: 'Rank #1 • 1450 XP', user: 'Alex', pass: 'Password123!' },
-  { name: 'John', role: 'Rank #2 • 1280 XP', user: 'John', pass: 'Password123!' },
-  { name: 'Sarah', role: 'Rank #3 • 1120 XP', user: 'Sarah', pass: 'Password123!' },
 ];
 
 function getPasswordStrength(pass) {
@@ -51,14 +45,6 @@ export default function AuthModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   const strength = isRegister ? getPasswordStrength(password) : null;
-
-  const handleDemoLogin = (demoUser, demoPass) => {
-    playClick();
-    setUsername(demoUser);
-    setPassword(demoPass);
-    setError('');
-    submitAuth(demoUser, demoPass, false, '', 'avatar-1');
-  };
 
   const submitAuth = async (uName, uPass, isReg, uEmail, uAvatar) => {
     setLoading(true);
@@ -534,41 +520,6 @@ export default function AuthModal({ isOpen, onClose }) {
             )}
           </button>
         </form>
-
-        {/* Quick Demo Login Section (Sign In tab only) */}
-        {!isRegister && (
-          <div style={{ marginTop: '24px', paddingTop: '18px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-              <Zap size={14} color="#ffb300" />
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700' }}>
-                One-Click Demo Players (Instant Test)
-              </span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.name}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => handleDemoLogin(acc.user, acc.pass)}
-                  className="btn btn-secondary"
-                  style={{
-                    padding: '8px 6px',
-                    fontSize: '0.78rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px',
-                    background: 'rgba(255, 255, 255, 0.03)'
-                  }}
-                >
-                  <span style={{ fontWeight: '700', color: 'var(--neon-cyan)' }}>{acc.name}</span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{acc.role.split('•')[1] || acc.role}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

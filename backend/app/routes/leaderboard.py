@@ -10,7 +10,13 @@ router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 
 @router.get("", response_model=List[LeaderboardEntry])
 def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
-    users = db.query(User).order_by(desc(User.xp), desc(User.wins)).limit(limit).all()
+    users = (
+        db.query(User)
+        .filter(~User.email.ilike("%@letterduel.gg"))
+        .order_by(desc(User.xp), desc(User.wins))
+        .limit(limit)
+        .all()
+    )
 
     entries = []
     for rank, user in enumerate(users, start=1):
