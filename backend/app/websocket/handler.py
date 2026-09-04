@@ -66,13 +66,25 @@ def start_turn_timer(session: RoomSession):
                     await broadcast_to_room(session, "chat_message", {
                         "sender_id": None,
                         "sender_username": "SYSTEM",
-                        "message": f"⏰ {notice}",
+                        "message": f"{notice}",
                         "is_system": True,
                         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
                     })
+
+                    if timeout_data.get("game_over"):
+                        cancel_turn_timer(session)
+                        with SessionLocal() as db_session:
+                            persist_game_end_to_db(session, db_session)
+                        await broadcast_to_room(session, "game_won", {
+                            "winner_id": timeout_data["winner_id"],
+                            "reason": timeout_data["win_reason"],
+                            "game_over": True
+                        })
+                    else:
+                        # Still has lifelines: automatically schedule 60s timer for next player!
+                        start_turn_timer(session)
+
                     await send_sync_states(session)
-                    # Automatically schedule the 60s timer for the next player!
-                    start_turn_timer(session)
         except asyncio.CancelledError:
             pass
         except Exception as e:

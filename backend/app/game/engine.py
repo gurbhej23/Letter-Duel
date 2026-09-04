@@ -59,6 +59,13 @@ class LetterDuelGame:
         }
         self.max_word_guess_attempts: int = 3
 
+        # Lifelines tracking: 3 lifelines per player (loses 1 if turn timer expires)
+        self.max_lifelines: int = 3
+        self.lifelines: Dict[int, int] = {
+            player1_id: 3,
+            player2_id: 3
+        }
+
         # Game statistics & logs
         self.history_log: List[dict] = []
         self.started_at: Optional[datetime.datetime] = None
@@ -124,6 +131,9 @@ class LetterDuelGame:
         # Player 2 is guessing Player 1's word
         p1_len = self.word_lengths[self.player1_id]
         self.discovered_masks[self.player2_id] = ["_"] * p1_len
+
+        # Reset lifelines for duel
+        self.lifelines = {self.player1_id: self.max_lifelines, self.player2_id: self.max_lifelines}
 
     def guess_letter(self, player_id: int, letter: str) -> Tuple[bool, dict, str]:
         """
@@ -274,6 +284,7 @@ class LetterDuelGame:
     def timeout_turn(self) -> Tuple[bool, dict, str]:
         """
         Switches turn when player fails to make a guess within 60 seconds (1 minute).
+        Decrements 1 lifeline. If lifelines reach 0, player is eliminated / disqualified!
         """
         if self.state != "PLAYING" or not self.current_turn_player_id:
             return False, {}, "Game is not currently active."
@@ -283,16 +294,40 @@ class LetterDuelGame:
         next_player_id = self.player2_id if timed_out_player_id == self.player1_id else self.player1_id
         next_username = self.player1_username if next_player_id == self.player1_id else self.player2_username
 
+        # Deduct 1 lifeline
+        current_lives = self.lifelines.get(timed_out_player_id, self.max_lifelines)
+        new_lives = max(0, current_lives - 1)
+        self.lifelines[timed_out_player_id] = new_lives
+
         now = datetime.datetime.now(datetime.timezone.utc)
         self.history_log.append({
             "turn": self.turn_number,
             "player_id": timed_out_player_id,
             "username": timed_out_username,
             "type": "turn_timeout",
-            "message": f"Time's up! {timed_out_username} did not guess in 60s.",
+            "message": f"Time's up! {timed_out_username} did not guess in 60s. Lifelines left: {new_lives}/3.",
             "timestamp": now.isoformat()
         })
 
+        if new_lives <= 0:
+            # Player ran out of lifelines!
+            self.state = "GAME_OVER"
+            self.ended_at = now
+            self.win_reason = "TIMEOUT_DISQUALIFIED"
+            self.winner_id = next_player_id
+
+            return True, {
+                "timed_out_player_id": timed_out_player_id,
+                "timed_out_username": timed_out_username,
+                "lifelines_left": 0,
+                "game_over": True,
+                "winner_id": self.winner_id,
+                "win_reason": f"{timed_out_username} ran out of lifelines (missed 3 turns)!",
+                "turn_number": self.turn_number,
+                "server_time": now.isoformat()
+            }, f"⏰ {timed_out_username} ran out of lifelines (0/3 remaining)! {next_username} wins the duel!"
+
+        # Has lifelines remaining: switch turn to opponent
         self.current_turn_player_id = next_player_id
         self.turn_number += 1
         self.turn_started_at = now
@@ -300,13 +335,15 @@ class LetterDuelGame:
         return True, {
             "timed_out_player_id": timed_out_player_id,
             "timed_out_username": timed_out_username,
+            "lifelines_left": new_lives,
+            "game_over": False,
             "next_turn_player_id": next_player_id,
             "next_turn_username": next_username,
             "turn_number": self.turn_number,
             "seconds_remaining": self.turn_timeout_seconds,
             "server_time": now.isoformat(),
             "turn_deadline": (now + datetime.timedelta(seconds=self.turn_timeout_seconds)).isoformat()
-        }, f"Time's up! {timed_out_username} did not guess in time. Turn passed to {next_username}."
+        }, f"Time's up! {timed_out_username} lost 1 lifeline ({new_lives}/3 remaining). Turn passed to {next_username}."
 
     def forfeit(self, forfeiting_player_id: int, reason: str = "FORFEIT") -> Tuple[bool, dict]:
         """Handles player surrender or 60s disconnect forfeit."""
@@ -352,6 +389,7 @@ class LetterDuelGame:
         self.guessed_letters = {self.player1_id: [], self.player2_id: []}
         self.discovered_masks = {self.player1_id: [], self.player2_id: []}
         self.word_guess_attempts = {self.player1_id: 0, self.player2_id: 0}
+        self.lifelines = {self.player1_id: self.max_lifelines, self.player2_id: self.max_lifelines}
         self.history_log.clear()
         self.started_at = None
         self.ended_at = None
@@ -401,6 +439,7 @@ class LetterDuelGame:
             "turn_timeout_seconds": self.turn_timeout_seconds,
             "seconds_remaining": seconds_remaining,
             "server_time": now.isoformat(),
+            "max_lifelines": self.max_lifelines,
             "player1": {
                 "id": self.player1_id,
                 "username": self.player1_username,
@@ -409,6 +448,7 @@ class LetterDuelGame:
                 "has_locked_word": self.player1_id in self.secret_words,
                 "word_length": self.word_lengths.get(self.player1_id, 0),
                 "word_guess_attempts_left": self.max_word_guess_attempts - self.word_guess_attempts.get(self.player1_id, 0),
+                "lifelines": self.lifelines.get(self.player1_id, self.max_lifelines),
                 "rematch_requested": self.player1_id in self.rematch_votes
             },
             "player2": {
@@ -419,6 +459,7 @@ class LetterDuelGame:
                 "has_locked_word": self.player2_id in self.secret_words,
                 "word_length": self.word_lengths.get(self.player2_id, 0),
                 "word_guess_attempts_left": self.max_word_guess_attempts - self.word_guess_attempts.get(self.player2_id, 0),
+                "lifelines": self.lifelines.get(self.player2_id, self.max_lifelines),
                 "rematch_requested": self.player2_id in self.rematch_votes
             } if self.player2_id else None,
             "my_word": my_secret_word,

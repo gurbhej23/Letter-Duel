@@ -133,6 +133,17 @@ export function SocketProvider({ children }) {
           addToast(data.message, "success");
           setDisconnectTimer(null);
         }
+        else if (type === "turn_timeout") {
+          const timedOutUser = data.timed_out_username || "Player";
+          if (data.game_over) {
+            addToast(`⏰ ${timedOutUser} ran out of lifelines (0/3)! Game over.`, "danger");
+            sound.playMiss();
+          } else {
+            const lives = data.lifelines_left ?? 0;
+            addToast(`⏰ ${timedOutUser} timed out! Lost 1 lifeline (${lives}/3 remaining).`, "warning");
+            sound.playMiss();
+          }
+        }
         else if (type === "player_left") {
           addToast(data.message || "Player left the room.", "warning");
         }

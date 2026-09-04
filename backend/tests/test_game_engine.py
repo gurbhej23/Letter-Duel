@@ -195,18 +195,49 @@ def test_turn_timeout():
     assert game.current_turn_player_id == 1
     assert game.turn_number == 1
 
-    # Simulate 60-second timeout on Player 1
+    # Lifelines start at 3
+    assert game.lifelines[1] == 3
+    assert game.lifelines[2] == 3
+
+    # Simulate 60-second timeout on Player 1 -> loses 1 lifeline (2 left)
     ok, data, msg = game.timeout_turn()
     assert ok is True
     assert data["timed_out_player_id"] == 1
+    assert data["lifelines_left"] == 2
+    assert data["game_over"] is False
+    assert game.lifelines[1] == 2
     assert data["next_turn_player_id"] == 2
     assert game.current_turn_player_id == 2  # TURN SWITCHED TO PLAYER 2!
     assert game.turn_number == 2
 
-    # Simulate 60-second timeout on Player 2
+    # Simulate 60-second timeout on Player 2 -> loses 1 lifeline (2 left)
     ok, data, msg = game.timeout_turn()
     assert ok is True
     assert data["timed_out_player_id"] == 2
+    assert data["lifelines_left"] == 2
+    assert data["game_over"] is False
+    assert game.lifelines[2] == 2
     assert data["next_turn_player_id"] == 1
     assert game.current_turn_player_id == 1  # TURN SWITCHED TO PLAYER 1!
     assert game.turn_number == 3
+
+    # Player 1 times out second time -> 1 lifeline left
+    ok, data, msg = game.timeout_turn()
+    assert ok is True
+    assert data["lifelines_left"] == 1
+    assert game.lifelines[1] == 1
+    assert game.current_turn_player_id == 2
+
+    # Player 2 makes a valid move
+    game.guess_letter(2, "C")
+    assert game.current_turn_player_id == 1
+
+    # Player 1 times out third time -> 0 lifelines left -> ELIMINATED!
+    ok, data, msg = game.timeout_turn()
+    assert ok is True
+    assert data["lifelines_left"] == 0
+    assert data["game_over"] is True
+    assert data["winner_id"] == 2
+    assert game.state == "GAME_OVER"
+    assert game.winner_id == 2
+    assert game.win_reason == "TIMEOUT_DISQUALIFIED"

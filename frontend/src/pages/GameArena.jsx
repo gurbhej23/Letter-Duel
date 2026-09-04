@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, MessageSquare, Flame, Check, HelpCircle, Clock } from 'lucide-react';
+import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, MessageSquare, Flame, Check, HelpCircle, Clock, Heart } from 'lucide-react';
 
 const ALPHABET_ROWS = [
   ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
@@ -129,6 +129,32 @@ export default function GameArena({ roomCode, onLeaveGame }) {
     sendEvent('rematch_request');
   };
 
+  const renderLifelines = (count = 3, label = "Lives") => {
+    return (
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }} title={`${count}/3 lifelines remaining (timeout penalty)`}>
+        {label && <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600' }}>{label}:</span>}
+        <div style={{ display: 'inline-flex', gap: '3px', alignItems: 'center' }}>
+          {[1, 2, 3].map((num) => {
+            const active = num <= count;
+            return (
+              <Heart
+                key={num}
+                size={16}
+                fill={active ? "#ff2a6d" : "rgba(255, 255, 255, 0.05)"}
+                color={active ? "#ff2a6d" : "#475569"}
+                style={{
+                  filter: active ? "drop-shadow(0 0 6px rgba(255, 42, 109, 0.7))" : "none",
+                  transform: active ? "scale(1)" : "scale(0.85)",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px' }}>
       {/* 60s Disconnect Banner */}
@@ -195,6 +221,21 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           </div>
 
           <span>{isMyTurn ? 'YOUR TURN TO GUESS' : `OPPONENT'S TURN (${opponent?.username || 'Opponent'})`}</span>
+        </div>
+
+        {/* Lifelines HUD */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          background: 'rgba(255, 255, 255, 0.04)',
+          padding: '6px 14px',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
+          {renderLifelines(me?.lifelines ?? 3, "You")}
+          <div style={{ width: '1px', height: '14px', background: 'rgba(255, 255, 255, 0.15)' }} />
+          {renderLifelines(opponent?.lifelines ?? 3, opponent?.username || "Opponent")}
         </div>
 
         <button 
@@ -267,7 +308,10 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                   {opponent?.username?.slice(0, 1).toUpperCase()}
                 </div>
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: '700', fontSize: '1rem' }}>{opponent?.username}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: '700', fontSize: '1rem' }}>{opponent?.username}</span>
+                    {renderLifelines(opponent?.lifelines ?? 3, "")}
+                  </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                     Target Word: {gameState.opponent_word_length} Letters
                   </div>
@@ -348,8 +392,11 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           {/* Player's Own Word Tracker (Bottom Mini-HUD) */}
           <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Your Secret Word
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Your Secret Word
+                </span>
+                {renderLifelines(me?.lifelines ?? 3, "Your Lives")}
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: '800', color: 'var(--neon-cyan)', letterSpacing: '3px' }}>
                 {gameState.my_word}
@@ -551,7 +598,9 @@ export default function GameArena({ roomCode, onLeaveGame }) {
             </h2>
 
             <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '20px' }}>
-              {isWinner ? 'You outwitted your opponent in the Letter Duel!' : `${opponent?.username} conquered the duel.`}
+              {gameState.win_reason?.includes('lifelines') || gameState.win_reason === 'TIMEOUT_DISQUALIFIED'
+                ? (isWinner ? `Opponent ran out of lifelines (missed 3 turn timers)!` : `You ran out of lifelines (missed 3 turn timers)!`)
+                : (isWinner ? 'You outwitted your opponent in the Letter Duel!' : `${opponent?.username} conquered the duel.`)}
             </p>
 
             {/* Secret Words Revealed */}
