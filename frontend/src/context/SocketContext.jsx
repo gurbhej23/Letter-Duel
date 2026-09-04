@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { useAuth } from './AuthContext';
 import { useSound } from './SoundContext';
 import confetti from 'canvas-confetti';
+import { getWsUrl } from '../utils/api';
 
 const SocketContext = createContext(null);
 
@@ -9,7 +10,7 @@ export function SocketProvider({ children }) {
   const { token, user } = useAuth();
   const sound = useSound();
   const [connected, setConnected] = useState(false);
-  const [currentRoomCode, setCurrentRoomCode] = useState(null);
+  const [currentRoomCode, setCurrentRoomCode] = useState(() => sessionStorage.getItem('letter_duel_room_code') || null);
   const [gameState, setGameState] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(null);
@@ -18,7 +19,7 @@ export function SocketProvider({ children }) {
 
   const wsRef = useRef(null);
   const reconnectAttempts = useRef(0);
-  const activeRoomRef = useRef(null);
+  const activeRoomRef = useRef(sessionStorage.getItem('letter_duel_room_code') || null);
   const prevTurnPlayerIdRef = useRef(null);
 
   const addToast = useCallback((message, type = "info") => {
@@ -27,6 +28,10 @@ export function SocketProvider({ children }) {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
+  }, []);
+
+  const clearToasts = useCallback(() => {
+    setToasts([]);
   }, []);
 
   const triggerConfetti = useCallback(() => {
@@ -38,18 +43,25 @@ export function SocketProvider({ children }) {
     });
   }, []);
 
+  const send = useCallback((type, data = {}) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type, data }));
+    } else {
+      console.warn("WebSocket not connected, cannot send:", type, data);
+    }
+  }, []);
+
   const connectToRoom = useCallback((roomCode) => {
     if (!roomCode || !token) return;
     activeRoomRef.current = roomCode;
+    sessionStorage.setItem('letter_duel_room_code', roomCode);
     setCurrentRoomCode(roomCode);
 
     if (wsRef.current) {
       wsRef.current.close();
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws/room/${roomCode}?token=${encodeURIComponent(token)}`;
+    const wsUrl = getWsUrl(roomCode, token);
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -98,6 +110,10 @@ export function SocketProvider({ children }) {
             sound.playMiss();
             addToast(`Full word guess failed! ${data.attempts_left} attempts left.`, "warning");
           }
+        }
+        else if (type === "turn_timeout") {
+          sound.playTurnChange();
+          addToast(`⏰ 60s expired! Turn passed to ${data.next_turn_username}.`, "warning");
         }
         else if (type === "game_won") {
           if (data.winner_id === user?.id) {
@@ -156,6 +172,7 @@ export function SocketProvider({ children }) {
 
   const disconnect = useCallback(() => {
     activeRoomRef.current = null;
+    sessionStorage.removeItem('letter_duel_room_code');
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -165,6 +182,14 @@ export function SocketProvider({ children }) {
     setGameState(null);
     setChatMessages([]);
   }, []);
+
+  // Auto-reconnect on mount or page refresh when user token is ready
+  useEffect(() => {
+    const savedRoom = sessionStorage.getItem('letter_duel_room_code');
+    if (savedRoom && token && !connected && !wsRef.current) {
+      connectToRoom(savedRoom);
+    }
+  }, [token, connected, connectToRoom]);
 
   const sendEvent = useCallback((type, data = {}) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

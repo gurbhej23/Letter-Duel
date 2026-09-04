@@ -36,6 +36,8 @@ class LetterDuelGame:
         # Turns: player1_id or player2_id
         self.current_turn_player_id: Optional[int] = None
         self.turn_number: int = 0
+        self.turn_started_at: Optional[datetime.datetime] = None
+        self.turn_timeout_seconds: int = 60
 
         # Guesses tracking: player_id -> list of guessed letters (upper-case)
         self.guessed_letters: Dict[int, List[str]] = {
@@ -108,9 +110,11 @@ class LetterDuelGame:
     def start_game(self):
         """Initialize playing state and masks."""
         self.state = "PLAYING"
-        self.started_at = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        self.started_at = now
         self.current_turn_player_id = self.player1_id  # Player 1 starts
         self.turn_number = 1
+        self.turn_started_at = now
 
         # Initialize discovered masks
         # Player 1 is guessing Player 2's word
@@ -189,6 +193,7 @@ class LetterDuelGame:
         # CRITICAL RULE: Switch turn ALWAYS!
         self.current_turn_player_id = opponent_id
         self.turn_number += 1
+        self.turn_started_at = datetime.datetime.now(datetime.timezone.utc)
 
         return True, {
             "letter": letter,
@@ -256,6 +261,7 @@ class LetterDuelGame:
         # Incorrect guess -> switch turn!
         self.current_turn_player_id = opponent_id
         self.turn_number += 1
+        self.turn_started_at = datetime.datetime.now(datetime.timezone.utc)
 
         return True, {
             "word": clean_word,
@@ -264,6 +270,41 @@ class LetterDuelGame:
             "game_over": False,
             "next_turn_player_id": self.current_turn_player_id
         }, f"Incorrect word '{clean_word}'! {attempts_left} full-word attempts remaining. Turn passed."
+
+    def timeout_turn(self) -> Tuple[bool, dict, str]:
+        """
+        Switches turn when player fails to make a guess within 60 seconds (1 minute).
+        """
+        if self.state != "PLAYING" or not self.current_turn_player_id:
+            return False, {}, "Game is not currently active."
+
+        timed_out_player_id = self.current_turn_player_id
+        timed_out_username = self.player1_username if timed_out_player_id == self.player1_id else self.player2_username
+        next_player_id = self.player2_id if timed_out_player_id == self.player1_id else self.player1_id
+        next_username = self.player1_username if next_player_id == self.player1_id else self.player2_username
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        self.history_log.append({
+            "turn": self.turn_number,
+            "player_id": timed_out_player_id,
+            "username": timed_out_username,
+            "type": "turn_timeout",
+            "message": f"Time's up! {timed_out_username} did not guess in 60s.",
+            "timestamp": now.isoformat()
+        })
+
+        self.current_turn_player_id = next_player_id
+        self.turn_number += 1
+        self.turn_started_at = now
+
+        return True, {
+            "timed_out_player_id": timed_out_player_id,
+            "timed_out_username": timed_out_username,
+            "next_turn_player_id": next_player_id,
+            "next_turn_username": next_username,
+            "turn_number": self.turn_number,
+            "turn_deadline": (now + datetime.timedelta(seconds=self.turn_timeout_seconds)).isoformat()
+        }, f"Time's up! {timed_out_username} did not guess in time. Turn passed to {next_username}."
 
     def forfeit(self, forfeiting_player_id: int, reason: str = "FORFEIT") -> Tuple[bool, dict]:
         """Handles player surrender or 60s disconnect forfeit."""
@@ -338,12 +379,20 @@ class LetterDuelGame:
         # Mask of viewer's word as discovered by opponent
         my_mask = self.discovered_masks.get(opponent_id, [])
 
+        turn_deadline = None
+        if self.state == "PLAYING" and self.turn_started_at:
+            deadline = self.turn_started_at + datetime.timedelta(seconds=self.turn_timeout_seconds)
+            turn_deadline = deadline.isoformat()
+
         return {
             "room_code": self.room_code,
             "state": self.state,
             "is_my_turn": (self.current_turn_player_id == viewer_player_id),
             "current_turn_player_id": self.current_turn_player_id,
             "turn_number": self.turn_number,
+            "turn_started_at": self.turn_started_at.isoformat() if self.turn_started_at else None,
+            "turn_deadline": turn_deadline,
+            "turn_timeout_seconds": self.turn_timeout_seconds,
             "player1": {
                 "id": self.player1_id,
                 "username": self.player1_username,

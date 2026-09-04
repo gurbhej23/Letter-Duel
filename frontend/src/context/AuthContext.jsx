@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data);
-      } else {
+      } else if (res.status === 401) {
         logout();
       }
     } catch (e) {

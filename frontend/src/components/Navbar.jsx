@@ -27,41 +27,43 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
     }}>
       {/* Brand Logo */}
       <div 
-        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
         onClick={() => { playClick(); window.location.hash = ''; }}
       >
         <div style={{
-          width: '40px',
-          height: '40px',
+          width: '36px',
+          height: '36px',
           borderRadius: '10px',
           background: 'linear-gradient(135deg, #00f2fe 0%, #8e2de2 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 0 16px rgba(0, 242, 254, 0.4)'
+          boxShadow: '0 0 16px rgba(0, 242, 254, 0.4)',
+          flexShrink: 0
         }}>
-          <span style={{ fontSize: '1.4rem', fontWeight: '900', color: '#fff', fontFamily: 'var(--font-display)' }}>⚔️</span>
+          <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fff', fontFamily: 'var(--font-display)' }}>⚔️</span>
         </div>
         <div>
-          <div style={{
+          <div className="nav-brand-title" style={{
             fontFamily: 'var(--font-display)',
             fontWeight: '900',
             fontSize: '1.35rem',
             letterSpacing: '1px',
             background: 'linear-gradient(90deg, #00f2fe, #fff, #8e2de2)',
             WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
+            WebkitTextFillColor: 'transparent',
+            whiteSpace: 'nowrap'
           }}>
             LETTER DUEL
           </div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+          <div className="nav-brand-subtitle" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
             1v1 Real-Time Arena
           </div>
         </div>
       </div>
 
       {/* Nav Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         {/* Sound Toggle */}
         <button 
           className="btn btn-secondary btn-icon" 
@@ -75,18 +77,20 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
         <button 
           className="btn btn-secondary btn-sm"
           onClick={() => { playClick(); onOpenTutorial(); }}
+          title="Rules"
         >
           <BookOpen size={16} />
-          <span>Rules</span>
+          <span className="nav-btn-text">Rules</span>
         </button>
 
         {/* Leaderboard */}
         <button 
           className="btn btn-secondary btn-sm"
           onClick={() => { playClick(); onOpenLeaderboard(); }}
+          title="Ranks"
         >
           <Trophy size={16} color="#ffb300" />
-          <span>Ranks</span>
+          <span className="nav-btn-text">Ranks</span>
         </button>
 
         {/* Friends (if logged in) */}
@@ -94,31 +98,33 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           <button 
             className="btn btn-secondary btn-sm"
             onClick={() => { playClick(); onOpenFriends(); }}
+            title="Friends"
           >
             <Users size={16} color="#00e676" />
-            <span>Friends</span>
+            <span className="nav-btn-text">Friends</span>
           </button>
         )}
 
         {/* User Badge / Auth */}
         {user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div 
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 background: 'rgba(255, 255, 255, 0.05)',
-                padding: '6px 12px',
+                padding: '6px 10px',
                 borderRadius: 'var(--radius-md)',
                 cursor: 'pointer',
                 border: '1px solid var(--border-subtle)'
               }}
               onClick={() => { playClick(); onOpenProfile(); }}
+              title="View Profile"
             >
               <div style={{
-                width: '30px',
-                height: '30px',
+                width: '28px',
+                height: '28px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #00f2fe, #4facfe)',
                 display: 'flex',
@@ -126,14 +132,15 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
                 justifyContent: 'center',
                 fontWeight: 'bold',
                 color: '#03101d',
-                fontSize: '0.85rem'
+                fontSize: '0.85rem',
+                flexShrink: 0
               }}>
                 {user.username.slice(0, 1).toUpperCase()}
               </div>
-              <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: '700', fontSize: '0.88rem' }}>{user.username}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--neon-amber)' }}>
-                  <Flame size={12} fill="currentColor" /> {user.current_streak} streak • {user.xp} XP
+              <div className="user-badge-details" style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{user.username}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--neon-amber)' }}>
+                  <Flame size={11} fill="currentColor" /> {user.current_streak} • {user.xp} XP
                 </div>
               </div>
             </div>
@@ -152,7 +159,7 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
             onClick={() => { playClick(); onOpenAuth(); }}
           >
             <User size={16} />
-            <span>Login / Register</span>
+            <span className="nav-btn-text">Login</span>
           </button>
         )}
       </div>

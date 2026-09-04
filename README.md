@@ -36,7 +36,29 @@ npm install
 npm run dev
 ```
 
-Visit **`http://localhost:5173`** (or `http://localhost:5174`) in two separate browser windows to test the live multiplayer duel flow!
+Visit **`http://localhost:5173`** in two separate browser windows to test the live multiplayer duel flow!
+
+---
+
+## 🌍 Playing on Another Laptop or Mobile Device (via ngrok)
+
+Because `ngrok` is configured with Vite's proxy, tunneling port **`5173`** exposes **both** the React interface and the real-time WebSocket backend through a single public HTTPS/WSS URL!
+
+1. Start the Backend:
+   ```powershell
+   cd backend
+   uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
+   ```
+2. Start the Frontend:
+   ```powershell
+   cd frontend
+   npm run dev
+   ```
+3. Start the ngrok Tunnel (in a 3rd terminal or double-click `start-ngrok.bat`):
+   ```powershell
+   ngrok http 5173
+   ```
+4. Copy the **`Forwarding`** URL from ngrok (e.g. `https://xxxx-xx-xx.ngrok-free.app`) and open it on **any other laptop, phone, or tablet** anywhere in the world to duel live!
 
 ---
 

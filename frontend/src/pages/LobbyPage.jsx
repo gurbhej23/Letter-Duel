@@ -67,9 +67,9 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
         }}>
           <span style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '2.8rem',
+            fontSize: 'clamp(1.8rem, 6vw, 2.8rem)',
             fontWeight: '900',
-            letterSpacing: '8px',
+            letterSpacing: 'clamp(4px, 1.5vw, 8px)',
             color: 'var(--neon-cyan)'
           }}>
             {roomCode}
@@ -165,12 +165,12 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
       <div style={{ textAlign: 'center' }}>
         <button
           className={`btn ${isReady ? 'btn-secondary' : 'btn-primary'}`}
-          style={{ fontSize: '1.2rem', padding: '16px 48px' }}
+          style={{ fontSize: 'clamp(0.95rem, 3.5vw, 1.2rem)', padding: '14px 24px', width: '100%', maxWidth: '460px' }}
           onClick={handleReadyToggle}
           disabled={!p1 || !p2}
         >
-          <ShieldCheck size={22} color={isReady ? "#00e676" : "#03101d"} />
-          <span>{isReady ? 'YOU ARE READY (WAITING FOR OPPONENT)' : 'I AM READY!'}</span>
+          <ShieldCheck size={20} color={isReady ? "#00e676" : "#03101d"} style={{ flexShrink: 0 }} />
+          <span>{isReady ? 'READY (WAITING FOR OPPONENT)' : 'I AM READY!'}</span>
         </button>
         {(!p1 || !p2) && (
           <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '10px' }}>

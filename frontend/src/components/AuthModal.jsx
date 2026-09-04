@@ -60,9 +60,18 @@ export default function AuthModal({ isOpen, onClose }) {
         body: JSON.stringify(body)
       });
 
-      const data = await res.json();
+      let data = {};
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          data = await res.json();
+        } catch {
+          data = {};
+        }
+      }
+
       if (!res.ok) {
-        throw new Error(data.detail || 'Authentication failed.');
+        throw new Error(data.detail || `Request failed (${res.status}). Verify backend URL is configured.`);
       }
 
       login(data.access_token, data.user);

@@ -40,6 +40,47 @@ async def send_sync_states(session: RoomSession):
         except Exception as e:
             logger.warning(f"Failed to sync state to player {pid}: {e}")
 
+def cancel_turn_timer(session: RoomSession):
+    """Cancels any running turn timer."""
+    if session.turn_timer_task and not session.turn_timer_task.done():
+        session.turn_timer_task.cancel()
+        session.turn_timer_task = None
+
+def start_turn_timer(session: RoomSession):
+    """
+    Starts an authoritative 60-second timer for the current player's turn.
+    If the player does not guess within 60s (1 minute), the turn automatically switches to the other player.
+    """
+    cancel_turn_timer(session)
+
+    if not session.game or session.game.state != "PLAYING":
+        return
+
+    async def turn_timer_worker():
+        try:
+            await asyncio.sleep(session.game.turn_timeout_seconds)
+            if session.game and session.game.state == "PLAYING":
+                ok, timeout_data, notice = session.game.timeout_turn()
+                if ok:
+                    await broadcast_to_room(session, "turn_timeout", timeout_data)
+                    await broadcast_to_room(session, "chat_message", {
+                        "sender_id": None,
+                        "sender_username": "SYSTEM",
+                        "message": f"⏰ {notice}",
+                        "is_system": True,
+                        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    })
+                    await send_sync_states(session)
+                    # Automatically schedule the 60s timer for the next player!
+                    start_turn_timer(session)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Error in turn_timer_worker: {e}")
+
+    loop = asyncio.get_event_loop()
+    session.turn_timer_task = loop.create_task(turn_timer_worker())
+
 def persist_game_end_to_db(session: RoomSession, db: Session):
     """Save finalized match results, XP, win/loss stats, and guess history to SQLite/PostgreSQL."""
     if not session.game or not session.game.winner_id:
@@ -141,19 +182,23 @@ async def websocket_room_endpoint(
         room_code = room_code.upper()
         session = room_manager.get_room(room_code)
         
-        # If room session not in memory, try restoring from DB
+        # Verify room exists in DB and user is a participant
+        db_room = db.query(DBRoom).filter(DBRoom.room_code == room_code).first()
+        if not db_room:
+            await websocket.send_text(json.dumps({"type": "error", "data": {"message": "Room not found."}}))
+            await websocket.close()
+            return
+
+        player_id = user.id
+        if db_room.player1_id != player_id and db_room.player2_id != player_id:
+            await websocket.send_text(json.dumps({"type": "error", "data": {"message": "Unauthorized: You are not a player in this room."}}))
+            await websocket.close()
+            return
+
         if not session:
-            db_room = db.query(DBRoom).filter(DBRoom.room_code == room_code).first()
-            if not db_room:
-                await websocket.send_text(json.dumps({"type": "error", "data": {"message": "Room not found."}}))
-                await websocket.close()
-                return
             session = RoomSession(room_code=room_code)
             room_manager.rooms[room_code] = session
 
-        # Register connection
-        player_id = user.id
-        
         # Check if returning / reconnecting
         is_reconnect = False
         if player_id in session.disconnect_tasks:
@@ -166,7 +211,6 @@ async def websocket_room_endpoint(
         session.connections[player_id] = websocket
 
         # Initialize or populate Game Engine
-        db_room = db.query(DBRoom).filter(DBRoom.room_code == room_code).first()
         if not session.game and db_room:
             # Check if player2 joined
             p2 = db.query(User).filter(User.id == db_room.player2_id).first() if db_room.player2_id else None
@@ -234,12 +278,15 @@ async def websocket_room_endpoint(
                     ok, notice = session.game.lock_word(player_id, secret_word)
                     if ok:
                         # Inform opponent ONLY that word is locked (NEVER reveal the word)
+                        duel_started = (session.game.state == "PLAYING")
                         await broadcast_to_room(session, "word_locked", {
                             "player_id": player_id,
                             "username": user.username,
                             "word_length": session.game.word_lengths.get(player_id, 0),
-                            "duel_started": (session.game.state == "PLAYING")
+                            "duel_started": duel_started
                         })
+                        if duel_started:
+                            start_turn_timer(session)
                         await send_sync_states(session)
                     else:
                         await websocket.send_text(json.dumps({
@@ -275,12 +322,15 @@ async def websocket_room_endpoint(
                         })
 
                         if result_data["game_over"]:
+                            cancel_turn_timer(session)
                             persist_game_end_to_db(session, db)
                             await broadcast_to_room(session, "game_won", {
                                 "winner_id": result_data["winner_id"],
                                 "reason": result_data["win_reason"],
                                 "game_over": True
                             })
+                        else:
+                            start_turn_timer(session)
 
                         await send_sync_states(session)
                     else:
@@ -315,12 +365,15 @@ async def websocket_room_endpoint(
                         })
 
                         if result_data["game_over"]:
+                            cancel_turn_timer(session)
                             persist_game_end_to_db(session, db)
                             await broadcast_to_room(session, "game_won", {
                                 "winner_id": result_data["winner_id"],
                                 "reason": result_data["win_reason"],
                                 "game_over": True
                             })
+                        else:
+                            start_turn_timer(session)
 
                         await send_sync_states(session)
                     else:
@@ -334,6 +387,8 @@ async def websocket_room_endpoint(
                 if session.game:
                     ok, started, notice = session.game.request_rematch(player_id)
                     if ok:
+                        if started:
+                            cancel_turn_timer(session)
                         await broadcast_to_room(session, "rematch_requested", {
                             "player_id": player_id,
                             "username": user.username,

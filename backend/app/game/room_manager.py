@@ -26,6 +26,9 @@ class RoomSession:
         self.disconnect_tasks: Dict[int, asyncio.Task] = {}
         self.disconnect_start_time: Dict[int, float] = {}
 
+        # Turn timer: 1 minute (60s) per guess
+        self.turn_timer_task: Optional[asyncio.Task] = None
+
         # Typing indicators: set of player_ids currently typing
         self.typing_players: Set[int] = set()
 
@@ -51,6 +54,8 @@ class RoomManager:
         code = room_code.upper()
         if code in self.rooms:
             session = self.rooms[code]
+            if session.turn_timer_task and not session.turn_timer_task.done():
+                session.turn_timer_task.cancel()
             for task in session.disconnect_tasks.values():
                 if not task.done():
                     task.cancel()

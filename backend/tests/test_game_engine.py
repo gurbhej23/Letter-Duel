@@ -177,3 +177,36 @@ def test_all_letters_discovered_win():
     assert data["game_over"] is True
     assert game.winner_id == 1
     assert game.win_reason == "ALL_LETTERS_FOUND"
+
+def test_turn_timeout():
+    game = LetterDuelGame(
+        room_code="TIME01",
+        player1_id=1,
+        player2_id=2,
+        player1_username="P1",
+        player2_username="P2"
+    )
+    game.set_player_ready(1)
+    game.set_player_ready(2)
+    game.lock_word(1, "COFFEE")
+    game.lock_word(2, "ORANGE")
+
+    assert game.state == "PLAYING"
+    assert game.current_turn_player_id == 1
+    assert game.turn_number == 1
+
+    # Simulate 60-second timeout on Player 1
+    ok, data, msg = game.timeout_turn()
+    assert ok is True
+    assert data["timed_out_player_id"] == 1
+    assert data["next_turn_player_id"] == 2
+    assert game.current_turn_player_id == 2  # TURN SWITCHED TO PLAYER 2!
+    assert game.turn_number == 2
+
+    # Simulate 60-second timeout on Player 2
+    ok, data, msg = game.timeout_turn()
+    assert ok is True
+    assert data["timed_out_player_id"] == 2
+    assert data["next_turn_player_id"] == 1
+    assert game.current_turn_player_id == 1  # TURN SWITCHED TO PLAYER 1!
+    assert game.turn_number == 3

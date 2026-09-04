@@ -16,8 +16,13 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
   useEffect(() => {
     fetch('/api/leaderboard?limit=3')
-      .then(res => res.json())
-      .then(data => setTopPlayers(data))
+      .then(res => {
+        if (!res.ok) return [];
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data)) setTopPlayers(data);
+      })
       .catch(err => console.error(err));
   }, []);
 

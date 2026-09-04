@@ -499,19 +499,101 @@ body {
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
-  .letter-slot {
-    width: 40px;
-    height: 50px;
-    font-size: 1.4rem;
-  }
-  .key-btn {
-    height: 44px;
-    font-size: 1rem;
-    border-radius: 6px;
-  }
+/* Mobile & Tablet Responsive Media Queries */
+@media (max-width: 900px) {
   .duel-arena-grid {
     grid-template-columns: 1fr !important;
+  }
+  .mobile-arena-tabs {
+    display: flex !important;
+  }
+  .mobile-hidden {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding-bottom: 20px;
+  }
+
+  .nav-brand-title {
+    font-size: 1.1rem !important;
+  }
+  .nav-brand-subtitle {
+    display: none !important;
+  }
+
+  .nav-actions {
+    gap: 6px !important;
+  }
+
+  .nav-btn-text {
+    display: none !important;
+  }
+
+  .user-badge-details {
+    display: none !important;
+  }
+
+  .word-slots {
+    gap: 6px !important;
+    margin: 12px 0 !important;
+  }
+
+  .letter-slot {
+    width: clamp(28px, 7.5vw, 42px) !important;
+    height: clamp(38px, 9.5vw, 54px) !important;
+    font-size: clamp(1.1rem, 4.5vw, 1.5rem) !important;
+    border-radius: 8px !important;
+  }
+
+  .letter-slot.opponent-view {
+    width: clamp(20px, 5.5vw, 28px) !important;
+    height: clamp(26px, 7vw, 36px) !important;
+    font-size: clamp(0.85rem, 3.5vw, 1.1rem) !important;
+    border-radius: 6px !important;
+  }
+
+  .keyboard-container {
+    gap: 6px !important;
+  }
+
+  .keyboard-row {
+    gap: 4px !important;
+  }
+
+  .key-btn {
+    height: 44px !important;
+    font-size: 0.95rem !important;
+    border-radius: 6px !important;
+    touch-action: manipulation;
+  }
+
+  .turn-banner {
+    font-size: 0.9rem !important;
+    padding: 10px 14px !important;
+  }
+
+  .modal-content {
+    padding: 18px !important;
+    margin: 10px !important;
+    max-height: 88vh !important;
+  }
+
+  .chat-container {
+    height: 420px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .key-btn {
+    height: 40px !important;
+    font-size: 0.85rem !important;
+  }
+
+  .letter-slot {
+    width: clamp(24px, 6.8vw, 36px) !important;
+    height: clamp(34px, 8.5vw, 46px) !important;
   }
 }

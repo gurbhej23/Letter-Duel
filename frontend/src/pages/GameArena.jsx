@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, MessageSquare, Flame, Check, HelpCircle } from 'lucide-react';
+import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, MessageSquare, Flame, Check, HelpCircle, Clock } from 'lucide-react';
 
 const ALPHABET_ROWS = [
   ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
@@ -12,13 +12,46 @@ const ALPHABET_ROWS = [
 
 export default function GameArena({ roomCode, onLeaveGame }) {
   const { user } = useAuth();
-  const { playClick, playKey, playHit, playMiss } = useSound();
+  const sound = useSound();
+  const { playClick, playKey, playHit, playMiss } = sound;
   const { gameState, sendEvent, chatMessages, typingUser, disconnectTimer } = useSocket();
 
   const [fullWordInput, setFullWordInput] = useState('');
   const [showFullWordModal, setShowFullWordModal] = useState(false);
   const [chatInput, setChatInput] = useState('');
+  const [mobileTab, setMobileTab] = useState('arena'); // 'arena' | 'chat'
+  const [secondsLeft, setSecondsLeft] = useState(60);
   const chatBottomRef = useRef(null);
+
+  const lastBeepedSecRef = useRef(null);
+
+  // Authoritative server-synchronized countdown timer
+  useEffect(() => {
+    if (!gameState?.turn_deadline || gameState?.state !== 'PLAYING') {
+      setSecondsLeft(60);
+      lastBeepedSecRef.current = null;
+      return;
+    }
+
+    const updateTimer = () => {
+      const deadline = new Date(gameState.turn_deadline).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((deadline - now) / 1000));
+      setSecondsLeft(remaining);
+
+      // Warning audio beep during final 5 seconds of own turn (once per second)
+      if (remaining <= 5 && remaining > 0 && gameState?.is_my_turn) {
+        if (lastBeepedSecRef.current !== remaining) {
+          lastBeepedSecRef.current = remaining;
+          sound.playCountdown();
+        }
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 500); // 500ms check keeps clock perfectly locked without jitter
+    return () => clearInterval(interval);
+  }, [gameState?.turn_deadline, gameState?.state, gameState?.is_my_turn, sound]);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,19 +144,44 @@ export default function GameArena({ roomCode, onLeaveGame }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 24px',
-        marginBottom: '20px'
+        flexWrap: 'wrap',
+        gap: '12px',
+        padding: '12px 20px',
+        marginBottom: '16px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className="badge badge-cyan">ROOM {roomCode}</span>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             Turn #{gameState.turn_number || 1}
           </span>
         </div>
 
-        {/* Dynamic Turn Badge */}
-        <div className={`turn-banner ${isMyTurn ? 'my-turn' : 'opp-turn'}`} style={{ margin: 0, padding: '8px 24px', fontSize: '0.95rem' }}>
-          {isMyTurn ? '⚡ YOUR TURN TO GUESS' : `⏳ OPPONENT'S TURN (${opponent?.username})`}
+        {/* Dynamic Turn Badge with 60s Countdown Clock */}
+        <div className={`turn-banner ${isMyTurn ? 'my-turn' : 'opp-turn'}`} style={{
+          margin: 0,
+          padding: '8px 18px',
+          fontSize: '0.9rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            background: secondsLeft <= 10 ? 'rgba(255, 42, 109, 0.2)' : 'rgba(0, 0, 0, 0.25)',
+            padding: '3px 8px',
+            borderRadius: 'var(--radius-sm)',
+            border: secondsLeft <= 10 ? '1px solid var(--neon-rose)' : '1px solid rgba(255,255,255,0.1)',
+            color: secondsLeft <= 10 ? 'var(--neon-rose)' : (isMyTurn ? 'var(--neon-cyan)' : 'var(--neon-amber)')
+          }}>
+            <Clock size={15} color={secondsLeft <= 10 ? "#ff2a6d" : (isMyTurn ? "#00f2fe" : "#ffb300")} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '900', fontSize: '0.95rem' }}>
+              {secondsLeft}s
+            </span>
+          </div>
+
+          <span>{isMyTurn ? 'YOUR TURN TO GUESS' : `OPPONENT'S TURN (${opponent?.username || 'Opponent'})`}</span>
         </div>
 
         <button 
@@ -131,6 +189,36 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           onClick={() => { playClick(); onLeaveGame(); }}
         >
           <Flag size={14} color="#ff2a6d" /> Leave Duel
+        </button>
+      </div>
+
+      {/* Mobile Tab Switcher (< 900px) */}
+      <div className="mobile-arena-tabs" style={{ display: 'none', marginBottom: '14px', gap: '8px' }}>
+        <button
+          className="btn"
+          style={{
+            flex: 1,
+            background: mobileTab === 'arena' ? 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' : 'var(--bg-surface-elevated)',
+            color: mobileTab === 'arena' ? '#03101d' : 'var(--text-secondary)',
+            padding: '10px',
+            fontSize: '0.9rem'
+          }}
+          onClick={() => { playClick(); setMobileTab('arena'); }}
+        >
+          <Swords size={16} /> Duel Board
+        </button>
+        <button
+          className="btn"
+          style={{
+            flex: 1,
+            background: mobileTab === 'chat' ? 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' : 'var(--bg-surface-elevated)',
+            color: mobileTab === 'chat' ? '#03101d' : 'var(--text-secondary)',
+            padding: '10px',
+            fontSize: '0.9rem'
+          }}
+          onClick={() => { playClick(); setMobileTab('chat'); }}
+        >
+          <MessageSquare size={16} /> Chat & Log ({chatMessages.length})
         </button>
       </div>
 
@@ -142,7 +230,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
         alignItems: 'start'
       }}>
         {/* Left Arena: Opponent Board, Slots, and Keyboard */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className={`arena-col-board ${mobileTab !== 'arena' ? 'mobile-hidden' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* Opponent's Discovered Letters Card */}
           <div className="glass-panel glow-cyan" style={{ padding: '24px', textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -272,7 +360,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
         </div>
 
         {/* Right Sidebar: Real-Time Battle Chat & History Log */}
-        <div className="chat-container glass-panel" style={{ height: '620px' }}>
+        <div className={`chat-container glass-panel arena-col-chat ${mobileTab !== 'chat' ? 'mobile-hidden' : ''}`} style={{ height: '620px' }}>
           <div style={{
             padding: '14px 16px',
             borderBottom: '1px solid var(--border-subtle)',
