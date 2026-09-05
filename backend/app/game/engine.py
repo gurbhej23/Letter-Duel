@@ -7,12 +7,13 @@ class LetterDuelGame:
         self,
         room_code: str,
         player1_id: int,
-        player2_id: int,
-        player1_username: str,
-        player2_username: str,
+        player2_id: Optional[int] = None,
+        player1_username: str = "Player 1",
+        player2_username: Optional[str] = None,
         player1_avatar: str = "avatar-1",
-        player2_avatar: str = "avatar-2",
-        allow_custom_words: bool = True
+        player2_avatar: Optional[str] = None,
+        allow_custom_words: bool = True,
+        is_private: bool = True
     ):
         self.room_code = room_code
         self.player1_id = player1_id
@@ -20,11 +21,13 @@ class LetterDuelGame:
         self.player1_username = player1_username
         self.player2_username = player2_username
         self.player1_avatar = player1_avatar
-        self.player2_avatar = player2_avatar
+        self.player2_avatar = player2_avatar or "avatar-2"
         self.allow_custom_words = allow_custom_words
+        self.is_private = is_private
+        self.is_bot_opponent = False
 
         # Game state: "WAITING", "READY", "WORD_SELECTION", "PLAYING", "GAME_OVER"
-        self.state = "WAITING"
+        self.state = "WAITING" if player2_id is None else "READY"
         
         # Readiness
         self.ready_players: set[int] = set()
@@ -41,30 +44,33 @@ class LetterDuelGame:
 
         # Guesses tracking: player_id -> list of guessed letters (upper-case)
         self.guessed_letters: Dict[int, List[str]] = {
-            player1_id: [],
-            player2_id: []
+            player1_id: []
         }
+        if player2_id:
+            self.guessed_letters[player2_id] = []
         
         # Discovered masks for each player's view of opponent's word
-        # player_id -> list of characters (e.g. ['_', 'A', '_', 'A', '_', 'A', '_'])
         self.discovered_masks: Dict[int, List[str]] = {
-            player1_id: [],
-            player2_id: []
+            player1_id: []
         }
+        if player2_id:
+            self.discovered_masks[player2_id] = []
 
         # Full word guess tracking: player_id -> count of attempts used (max 3)
         self.word_guess_attempts: Dict[int, int] = {
-            player1_id: 0,
-            player2_id: 0
+            player1_id: 0
         }
+        if player2_id:
+            self.word_guess_attempts[player2_id] = 0
         self.max_word_guess_attempts: int = 3
 
         # Lifelines tracking: 3 lifelines per player (loses 1 if turn timer expires)
         self.max_lifelines: int = 3
         self.lifelines: Dict[int, int] = {
-            player1_id: 3,
-            player2_id: 3
+            player1_id: 3
         }
+        if player2_id:
+            self.lifelines[player2_id] = 3
 
         # Game statistics & logs
         self.history_log: List[dict] = []
@@ -76,18 +82,79 @@ class LetterDuelGame:
         # Rematch requests: set of player IDs who voted for rematch
         self.rematch_votes: set[int] = set()
 
-    def set_player_ready(self, player_id: int) -> Tuple[bool, str]:
-        """Mark a player as ready. If both are ready, proceed to WORD_SELECTION."""
+    def add_player2(self, player2_id: int, player2_username: str, player2_avatar: str = "avatar-2"):
+        """Add Player 2 to the duel room."""
+        self.player2_id = player2_id
+        self.player2_username = player2_username
+        self.player2_avatar = player2_avatar
+        self.guessed_letters[player2_id] = []
+        self.discovered_masks[player2_id] = []
+        self.word_guess_attempts[player2_id] = 0
+        self.lifelines[player2_id] = self.max_lifelines
+        if self.state == "WAITING":
+            self.state = "READY"
+
+    def get_current_player(self) -> Optional[dict]:
+        """Return the player metadata whose turn is active."""
+        if not self.current_turn_player_id:
+            return None
+        if self.current_turn_player_id == self.player1_id:
+            return {"id": self.player1_id, "username": self.player1_username, "avatar": self.player1_avatar}
+        return {"id": self.player2_id, "username": self.player2_username, "avatar": self.player2_avatar}
+
+    def get_opponent(self, player_id: int) -> Optional[dict]:
+        """Return opponent metadata for a given player."""
+        if player_id == self.player1_id:
+            if not self.player2_id:
+                return None
+            return {"id": self.player2_id, "username": self.player2_username, "avatar": self.player2_avatar}
+        elif player_id == self.player2_id:
+            return {"id": self.player1_id, "username": self.player1_username, "avatar": self.player1_avatar}
+        return None
+
+    def switch_turn(self) -> int:
+        """Switch active turn strictly to the other player and stamp time."""
+        if not self.player2_id:
+            return self.player1_id
+        next_id = self.player2_id if self.current_turn_player_id == self.player1_id else self.player1_id
+        self.current_turn_player_id = next_id
+        self.turn_number += 1
+        self.turn_started_at = datetime.datetime.now(datetime.timezone.utc)
+        return next_id
+
+    def validate_turn(self, player_id: int) -> Tuple[bool, str]:
+        """Validate if player is authorized to take action."""
+        if self.state != "PLAYING":
+            return False, "Game is not currently active."
+        if player_id != self.current_turn_player_id:
+            return False, "It is not your turn!"
+        return True, ""
+
+    def set_player_ready(self, player_id: int, ready: Optional[bool] = None) -> Tuple[bool, str]:
+        """Toggle or mark player ready. When both are ready, advance to WORD_SELECTION."""
         if player_id not in (self.player1_id, self.player2_id):
             return False, "You are not a player in this room."
         
-        self.ready_players.add(player_id)
-        if len(self.ready_players) == 2 and self.state in ("WAITING", "READY"):
+        if ready is None:
+            # Toggle readiness
+            if player_id in self.ready_players:
+                self.ready_players.remove(player_id)
+            else:
+                self.ready_players.add(player_id)
+        elif ready:
+            self.ready_players.add(player_id)
+        else:
+            self.ready_players.discard(player_id)
+
+        if self.player2_id and len(self.ready_players) == 2 and self.state in ("WAITING", "READY"):
             self.state = "WORD_SELECTION"
             return True, "Both players are ready! Select your secret words."
         
-        self.state = "READY"
-        return True, "Player marked as ready."
+        if self.state not in ("WORD_SELECTION", "PLAYING", "GAME_OVER"):
+            self.state = "READY" if self.player2_id else "WAITING"
+
+        status_str = "ready" if player_id in self.ready_players else "not ready"
+        return True, f"Player marked as {status_str}."
 
     def lock_word(self, player_id: int, word: str) -> Tuple[bool, str]:
         """Lock in a secret word for a player."""
@@ -203,7 +270,9 @@ class LetterDuelGame:
         # CRITICAL RULE: Switch turn ALWAYS!
         self.current_turn_player_id = opponent_id
         self.turn_number += 1
-        self.turn_started_at = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        self.turn_started_at = now
+        expires = now + datetime.timedelta(seconds=self.turn_timeout_seconds)
 
         return True, {
             "letter": letter,
@@ -211,7 +280,12 @@ class LetterDuelGame:
             "positions": positions_revealed,
             "discovered_mask": list(self.discovered_masks[player_id]),
             "game_over": False,
-            "next_turn_player_id": self.current_turn_player_id
+            "next_turn_player_id": self.current_turn_player_id,
+            "turn_number": self.turn_number,
+            "turn_started_at": now.isoformat(),
+            "turn_expires_at": expires.isoformat(),
+            "seconds_remaining": self.turn_timeout_seconds,
+            "server_time": now.isoformat()
         }, f"Letter '{letter}' -> {'YES' if exists else 'NO'}. Turn passed to opponent."
 
     def guess_full_word(self, player_id: int, word: str) -> Tuple[bool, dict, str]:
@@ -271,14 +345,21 @@ class LetterDuelGame:
         # Incorrect guess -> switch turn!
         self.current_turn_player_id = opponent_id
         self.turn_number += 1
-        self.turn_started_at = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        self.turn_started_at = now
+        expires = now + datetime.timedelta(seconds=self.turn_timeout_seconds)
 
         return True, {
             "word": clean_word,
             "result": False,
             "attempts_left": attempts_left,
             "game_over": False,
-            "next_turn_player_id": self.current_turn_player_id
+            "next_turn_player_id": self.current_turn_player_id,
+            "turn_number": self.turn_number,
+            "turn_started_at": now.isoformat(),
+            "turn_expires_at": expires.isoformat(),
+            "seconds_remaining": self.turn_timeout_seconds,
+            "server_time": now.isoformat()
         }, f"Incorrect word '{clean_word}'! {attempts_left} full-word attempts remaining. Turn passed."
 
     def timeout_turn(self) -> Tuple[bool, dict, str]:
@@ -342,7 +423,8 @@ class LetterDuelGame:
             "turn_number": self.turn_number,
             "seconds_remaining": self.turn_timeout_seconds,
             "server_time": now.isoformat(),
-            "turn_deadline": (now + datetime.timedelta(seconds=self.turn_timeout_seconds)).isoformat()
+            "turn_deadline": (now + datetime.timedelta(seconds=self.turn_timeout_seconds)).isoformat(),
+            "turn_expires_at": (now + datetime.timedelta(seconds=self.turn_timeout_seconds)).isoformat()
         }, f"Time's up! {timed_out_username} lost 1 lifeline ({new_lives}/3 remaining). Turn passed to {next_username}."
 
     def forfeit(self, forfeiting_player_id: int, reason: str = "FORFEIT") -> Tuple[bool, dict]:
@@ -430,12 +512,14 @@ class LetterDuelGame:
 
         return {
             "room_code": self.room_code,
+            "is_private": getattr(self, "is_private", True),
             "state": self.state,
             "is_my_turn": (self.current_turn_player_id == viewer_player_id),
             "current_turn_player_id": self.current_turn_player_id,
             "turn_number": self.turn_number,
             "turn_started_at": self.turn_started_at.isoformat() if self.turn_started_at else None,
             "turn_deadline": turn_deadline,
+            "turn_expires_at": turn_deadline,
             "turn_timeout_seconds": self.turn_timeout_seconds,
             "seconds_remaining": seconds_remaining,
             "server_time": now.isoformat(),

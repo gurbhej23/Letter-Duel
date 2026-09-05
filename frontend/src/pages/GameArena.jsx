@@ -4,17 +4,24 @@ import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, MessageSquare, Flame, Check, HelpCircle, Clock, Heart } from 'lucide-react';
 
-const ALPHABET_ROWS = [
+const DESKTOP_ALPHABET_ROWS = [
   ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
   ['J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'],
   ['S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+];
+
+const MOBILE_ALPHABET_ROWS = [
+  ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+  ['H', 'I', 'J', 'K', 'L', 'M', 'N'],
+  ['O', 'P', 'Q', 'R', 'S', 'T'],
+  ['U', 'V', 'W', 'X', 'Y', 'Z']
 ];
 
 export default function GameArena({ roomCode, onLeaveGame }) {
   const { user } = useAuth();
   const sound = useSound();
   const { playClick, playKey, playHit, playMiss } = sound;
-  const { gameState, sendEvent, chatMessages, typingUser, disconnectTimer, leaveRoom } = useSocket();
+  const { gameState, sendEvent, chatMessages, typingUser, disconnectTimer, serverClockOffset, leaveRoom } = useSocket();
 
   const [fullWordInput, setFullWordInput] = useState('');
   const [showFullWordModal, setShowFullWordModal] = useState(false);
@@ -26,8 +33,8 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const lastBeepedSecRef = useRef(null);
 
   // Authoritative server-synchronized countdown timer
-  // Synchronized via server seconds_remaining and monotonic performance.now()
-  // Immune to local PC clock skew (so both players always see 60s countdown)
+  // Synchronized via server turn_expires_at and serverClockOffset calibration
+  // Completely immune to client clock skew, and seamlessly resumes upon refresh
   useEffect(() => {
     if (gameState?.state !== 'PLAYING') {
       setSecondsLeft(60);
@@ -35,14 +42,15 @@ export default function GameArena({ roomCode, onLeaveGame }) {
       return;
     }
 
-    const baseSeconds = typeof gameState.seconds_remaining === 'number' 
-      ? gameState.seconds_remaining 
-      : 60;
-    const syncTime = performance.now();
-
     const updateTimer = () => {
-      const elapsed = (performance.now() - syncTime) / 1000;
-      const remaining = Math.max(0, Math.ceil(baseSeconds - elapsed));
+      let remaining = 60;
+      if (gameState?.turn_expires_at) {
+        const deadline = Date.parse(gameState.turn_expires_at);
+        const serverNow = Date.now() + (serverClockOffset || 0);
+        remaining = Math.max(0, Math.ceil((deadline - serverNow) / 1000));
+      } else if (typeof gameState?.seconds_remaining === 'number') {
+        remaining = Math.max(0, gameState.seconds_remaining);
+      }
       setSecondsLeft(remaining);
 
       // Warning audio beep during final 5 seconds of own turn (once per second)
@@ -61,8 +69,10 @@ export default function GameArena({ roomCode, onLeaveGame }) {
     gameState?.state, 
     gameState?.turn_number, 
     gameState?.current_turn_player_id, 
+    gameState?.turn_expires_at,
     gameState?.seconds_remaining, 
     gameState?.is_my_turn, 
+    serverClockOffset,
     sound
   ]);
 
@@ -72,8 +82,14 @@ export default function GameArena({ roomCode, onLeaveGame }) {
 
   if (!gameState) {
     return (
-      <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
-        Loading Game Arena...
+      <div style={{ maxWidth: '480px', margin: '100px auto', textAlign: 'center', padding: '40px 20px' }} className="glass-panel">
+        <div style={{ width: '48px', height: '48px', border: '3px solid rgba(0, 242, 254, 0.2)', borderTopColor: 'var(--neon-cyan)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 18px auto' }} />
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', marginBottom: '8px' }}>
+          Synchronizing Duel State...
+        </h3>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+          Restoring your active match and turn timer from server.
+        </p>
       </div>
     );
   }
@@ -156,7 +172,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   };
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px' }}>
+    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: 'clamp(12px, 2.5vw, 20px) clamp(10px, 2vw, 16px)' }}>
       {/* 60s Disconnect Banner */}
       {disconnectTimer !== null && (
         <div style={{
@@ -166,14 +182,15 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           borderRadius: 'var(--radius-md)',
           textAlign: 'center',
           fontWeight: '700',
-          marginBottom: '20px',
+          marginBottom: '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '10px',
-          boxShadow: 'var(--shadow-rose)'
+          boxShadow: 'var(--shadow-rose)',
+          fontSize: '0.9rem'
         }}>
-          <AlertTriangle size={20} />
+          <AlertTriangle size={20} style={{ flexShrink: 0 }} />
           <span>Opponent disconnected! Waiting {disconnectTimer}s to reconnect or forfeit victory is yours!</span>
         </div>
       )}
@@ -184,11 +201,11 @@ export default function GameArena({ roomCode, onLeaveGame }) {
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '12px',
-        padding: '12px 20px',
+        gap: '10px',
+        padding: 'clamp(10px, 2vw, 14px) clamp(12px, 2.5vw, 20px)',
         marginBottom: '16px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="badge badge-cyan">ROOM {roomCode}</span>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             Turn #{gameState.turn_number || 1}
@@ -198,11 +215,14 @@ export default function GameArena({ roomCode, onLeaveGame }) {
         {/* Dynamic Turn Badge with 60s Countdown Clock */}
         <div className={`turn-banner ${isMyTurn ? 'my-turn' : 'opp-turn'}`} style={{
           margin: 0,
-          padding: '8px 18px',
-          fontSize: '0.9rem',
+          padding: '8px 16px',
+          fontSize: 'clamp(0.82rem, 2.5vw, 0.92rem)',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px'
+          justifyContent: 'center',
+          gap: '8px',
+          flex: '1 1 auto',
+          minWidth: '220px'
         }}>
           <div style={{
             display: 'inline-flex',
@@ -223,36 +243,61 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           <span>{isMyTurn ? 'YOUR TURN TO GUESS' : `OPPONENT'S TURN (${opponent?.username || 'Opponent'})`}</span>
         </div>
 
-        {/* Lifelines HUD */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '14px',
-          background: 'rgba(255, 255, 255, 0.04)',
-          padding: '6px 14px',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid rgba(255, 255, 255, 0.08)'
-        }}>
-          {renderLifelines(me?.lifelines ?? 3, "You")}
-          <div style={{ width: '1px', height: '14px', background: 'rgba(255, 255, 255, 0.15)' }} />
-          {renderLifelines(opponent?.lifelines ?? 3, opponent?.username || "Opponent")}
-        </div>
+        {/* Lifelines HUD & Forfeit Action */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            padding: '6px 12px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid rgba(255, 255, 255, 0.08)'
+          }}>
+            {renderLifelines(me?.lifelines ?? 3, "You")}
+            <div style={{ width: '1px', height: '14px', background: 'rgba(255, 255, 255, 0.15)' }} />
+            {renderLifelines(opponent?.lifelines ?? 3, opponent?.username || "Opp")}
+          </div>
 
-        <button 
-          className="btn btn-secondary btn-sm"
-          onClick={() => {
-            playClick();
-            if (window.confirm("Are you sure you want to forfeit and leave the duel?")) {
-              leaveRoom(true);
-            }
-          }}
-          title="Forfeit and return to menu"
-        >
-          <Flag size={14} color="#ff2a6d" /> Forfeit Duel
-        </button>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              playClick();
+              if (window.confirm("Are you sure you want to forfeit and leave the duel?")) {
+                leaveRoom(true);
+              }
+            }}
+            title="Forfeit and return to menu"
+            aria-label="Forfeit Duel"
+          >
+            <Flag size={14} color="#ff2a6d" /> Forfeit
+          </button>
+        </div>
       </div>
 
-      {/* Mobile Tab Switcher (< 900px) */}
+      {/* Opponent Disconnected / Reconnecting Grace Period Alert */}
+      {disconnectTimer !== null && (
+        <div style={{
+          background: 'rgba(255, 179, 0, 0.12)',
+          border: '1px solid #ffb300',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 18px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          color: '#ffb300',
+          fontWeight: '700',
+          fontSize: '0.92rem',
+          boxShadow: '0 0 15px rgba(255, 179, 0, 0.2)'
+        }}>
+          <AlertTriangle size={18} color="#ffb300" style={{ flexShrink: 0 }} />
+          <span>Opponent reconnecting... ({disconnectTimer}s grace period remaining)</span>
+        </div>
+      )}
+
+      {/* Mobile Tab Switcher (< 1024px) */}
       <div className="mobile-arena-tabs" style={{ display: 'none', marginBottom: '14px', gap: '8px' }}>
         <button
           className="btn"
@@ -261,7 +306,8 @@ export default function GameArena({ roomCode, onLeaveGame }) {
             background: mobileTab === 'arena' ? 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' : 'var(--bg-surface-elevated)',
             color: mobileTab === 'arena' ? '#03101d' : 'var(--text-secondary)',
             padding: '10px',
-            fontSize: '0.9rem'
+            fontSize: '0.9rem',
+            minHeight: '44px'
           }}
           onClick={() => { playClick(); setMobileTab('arena'); }}
         >
@@ -274,7 +320,8 @@ export default function GameArena({ roomCode, onLeaveGame }) {
             background: mobileTab === 'chat' ? 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)' : 'var(--bg-surface-elevated)',
             color: mobileTab === 'chat' ? '#03101d' : 'var(--text-secondary)',
             padding: '10px',
-            fontSize: '0.9rem'
+            fontSize: '0.9rem',
+            minHeight: '44px'
           }}
           onClick={() => { playClick(); setMobileTab('chat'); }}
         >
@@ -290,10 +337,10 @@ export default function GameArena({ roomCode, onLeaveGame }) {
         alignItems: 'start'
       }}>
         {/* Left Arena: Opponent Board, Slots, and Keyboard */}
-        <div className={`arena-col-board ${mobileTab !== 'arena' ? 'mobile-hidden' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className={`arena-col-board ${mobileTab !== 'arena' ? 'mobile-hidden' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {/* Opponent's Discovered Letters Card */}
-          <div className="glass-panel glow-cyan" style={{ padding: '24px', textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div className="glass-panel glow-cyan" style={{ padding: 'clamp(16px, 3vw, 24px)', textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{
                   width: '36px',
@@ -303,7 +350,8 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontWeight: '700'
+                  fontWeight: '700',
+                  flexShrink: 0
                 }}>
                   {opponent?.username?.slice(0, 1).toUpperCase()}
                 </div>
@@ -323,13 +371,14 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                 className="btn btn-accent btn-sm"
                 onClick={() => { playClick(); setShowFullWordModal(true); }}
                 disabled={!isMyTurn || isGameOver || me?.word_guess_attempts_left <= 0}
+                style={{ fontSize: 'clamp(0.8rem, 2.2vw, 0.85rem)' }}
               >
-                <Swords size={16} /> Guess Full Word ({me?.word_guess_attempts_left ?? 3} left)
+                <Swords size={15} /> Guess Full Word ({me?.word_guess_attempts_left ?? 3} left)
               </button>
             </div>
 
-            {/* Letter Slots */}
-            <div className="word-slots">
+            {/* Letter Slots with Dense Scaling for 9+ Letters */}
+            <div className={`word-slots ${opponentMask.length > 8 ? 'dense-slots' : ''}`}>
               {opponentMask.map((char, idx) => (
                 <div 
                   key={idx} 
@@ -340,18 +389,18 @@ export default function GameArena({ roomCode, onLeaveGame }) {
               ))}
             </div>
 
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            <div style={{ fontSize: 'clamp(0.8rem, 2.5vw, 0.85rem)', color: 'var(--text-secondary)' }}>
               {isMyTurn ? "Select a letter below to guess against your opponent's word." : "Waiting for opponent's letter guess..."}
             </div>
           </div>
 
           {/* Virtual Alphabet Keyboard */}
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', letterSpacing: '1px' }}>
+          <div className="glass-panel" style={{ padding: 'clamp(14px, 2.5vw, 20px)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted)', letterSpacing: '1px' }}>
                 ALPHABET KEYBOARD
               </span>
-              <div style={{ display: 'flex', gap: '14px', fontSize: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#00e676' }} /> Hit (YES)
                 </span>
@@ -361,8 +410,9 @@ export default function GameArena({ roomCode, onLeaveGame }) {
               </div>
             </div>
 
-            <div className="keyboard-container">
-              {ALPHABET_ROWS.map((row, rIdx) => (
+            {/* Desktop Keyboard (3 rows of 9/9/8) */}
+            <div className="keyboard-container desktop-keyboard">
+              {DESKTOP_ALPHABET_ROWS.map((row, rIdx) => (
                 <div key={rIdx} className="keyboard-row">
                   {row.map((letter) => {
                     const hasGuessed = myGuessedLetters.has(letter);
@@ -379,6 +429,36 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                         className={`key-btn ${statusClass}`}
                         disabled={!isMyTurn || isGameOver || hasGuessed}
                         onClick={() => handleLetterClick(letter)}
+                        aria-label={`Letter ${letter}`}
+                      >
+                        {letter}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile Keyboard (4 rows: 7/7/6/6 for large comfortable touch targets) */}
+            <div className="keyboard-container mobile-keyboard">
+              {MOBILE_ALPHABET_ROWS.map((row, rIdx) => (
+                <div key={rIdx} className="keyboard-row">
+                  {row.map((letter) => {
+                    const hasGuessed = myGuessedLetters.has(letter);
+                    const isHit = hasGuessed && opponentMask.includes(letter);
+                    const isMiss = hasGuessed && !isHit;
+
+                    let statusClass = '';
+                    if (isHit) statusClass = 'hit';
+                    else if (isMiss) statusClass = 'miss';
+
+                    return (
+                      <button
+                        key={letter}
+                        className={`key-btn ${statusClass}`}
+                        disabled={!isMyTurn || isGameOver || hasGuessed}
+                        onClick={() => handleLetterClick(letter)}
+                        aria-label={`Letter ${letter}`}
                       >
                         {letter}
                       </button>
@@ -390,7 +470,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           </div>
 
           {/* Player's Own Word Tracker (Bottom Mini-HUD) */}
-          <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div className="glass-panel" style={{ padding: 'clamp(12px, 2.5vw, 16px) clamp(14px, 3vw, 20px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
@@ -398,15 +478,15 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                 </span>
                 {renderLifelines(me?.lifelines ?? 3, "Your Lives")}
               </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', fontWeight: '800', color: 'var(--neon-cyan)', letterSpacing: '3px' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(1.1rem, 3.5vw, 1.25rem)', fontWeight: '800', color: 'var(--neon-cyan)', letterSpacing: '3px' }}>
                 {gameState.my_word}
               </div>
             </div>
 
             {/* What opponent has discovered of YOUR word */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Opponent's progress:</div>
-              <div style={{ display: 'flex', gap: '4px' }}>
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                 {myMask.map((char, idx) => (
                   <div 
                     key={idx} 
@@ -426,9 +506,9 @@ export default function GameArena({ roomCode, onLeaveGame }) {
         </div>
 
         {/* Right Sidebar: Real-Time Battle Chat & History Log */}
-        <div className={`chat-container glass-panel arena-col-chat ${mobileTab !== 'chat' ? 'mobile-hidden' : ''}`} style={{ height: '620px' }}>
+        <div className={`chat-container glass-panel arena-col-chat ${mobileTab !== 'chat' ? 'mobile-hidden' : ''}`}>
           <div style={{
-            padding: '14px 16px',
+            padding: '12px 16px',
             borderBottom: '1px solid var(--border-subtle)',
             fontWeight: '700',
             fontFamily: 'var(--font-display)',
@@ -480,13 +560,13 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           <form onSubmit={handleSendChat} className="chat-input-bar">
             <input
               type="text"
-              placeholder="Send message to opponent..."
+              placeholder="Send message..."
               className="chat-input"
               value={chatInput}
               onChange={handleChatInputChange}
               maxLength={120}
             />
-            <button type="submit" className="btn btn-primary btn-icon" disabled={!chatInput.trim()}>
+            <button type="submit" className="btn btn-primary btn-icon" disabled={!chatInput.trim()} aria-label="Send Chat">
               <Send size={16} />
             </button>
           </form>

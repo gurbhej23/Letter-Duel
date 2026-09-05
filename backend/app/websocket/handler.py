@@ -21,9 +21,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 async def broadcast_to_room(session: RoomSession, event_type: str, data: dict, sender_ws: Optional[WebSocket] = None):
-    """Broadcast JSON message to all active WebSocket connections in room session."""
+    """Broadcast JSON message to all active WebSocket connections in room session (skipping sender_ws if specified)."""
     payload = json.dumps({"type": event_type, "data": data})
     for pid, ws in list(session.connections.items()):
+        if sender_ws and ws == sender_ws:
+            continue
         try:
             await ws.send_text(payload)
         except Exception as e:
@@ -46,14 +48,78 @@ def cancel_turn_timer(session: RoomSession):
         session.turn_timer_task.cancel()
         session.turn_timer_task = None
 
+async def bot_turn_worker(session: RoomSession):
+    """Simulates an online challenger taking their turn after a natural thinking delay."""
+    try:
+        await asyncio.sleep(3.5)  # 3.5s thinking delay
+        if not session.game or session.game.state != "PLAYING":
+            return
+        if session.game.current_turn_player_id != 99999:
+            return
+
+        guessed = set(session.game.guessed_letters.get(99999, []))
+        common_order = "EARTOISNLCDUGPMHBYFVKWXZJQ"
+        chosen_letter = "A"
+        for ch in common_order:
+            if ch not in guessed:
+                chosen_letter = ch
+                break
+
+        ok, result_data, notice = session.game.guess_letter(99999, chosen_letter)
+        if ok:
+            bot_name = session.game.player2_username or "Challenger"
+            await broadcast_to_room(session, "guess_result", {
+                "guesser_id": 99999,
+                "guesser_username": bot_name,
+                "letter": result_data["letter"],
+                "result": result_data["result"],
+                "next_turn_player_id": result_data["next_turn_player_id"],
+                "game_over": result_data["game_over"],
+                "positions": result_data.get("positions", [])
+            })
+            sys_msg = f"{bot_name} guessed '{chosen_letter}' → {'YES' if result_data['result'] else 'NO'}."
+            await broadcast_to_room(session, "chat_message", {
+                "sender_id": None,
+                "sender_username": "SYSTEM",
+                "message": sys_msg,
+                "is_system": True,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            })
+
+            if result_data["game_over"]:
+                cancel_turn_timer(session)
+                with SessionLocal() as db_session:
+                    persist_game_end_to_db(session, db_session)
+                await broadcast_to_room(session, "game_won", {
+                    "winner_id": result_data["winner_id"],
+                    "reason": result_data["win_reason"],
+                    "game_over": True
+                })
+            else:
+                start_turn_timer(session)
+
+            await send_sync_states(session)
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.error(f"Error in bot_turn_worker: {e}")
+
 def start_turn_timer(session: RoomSession):
     """
     Starts an authoritative 60-second timer for the current player's turn.
     If the player does not guess within 60s (1 minute), the turn automatically switches to the other player.
+    If the active player is an online simulated challenger (bot), runs bot_turn_worker.
     """
     cancel_turn_timer(session)
 
     if not session.game or session.game.state != "PLAYING":
+        return
+
+    loop = asyncio.get_event_loop()
+
+    # If it's the bot's turn, execute bot turn worker
+    if session.game.is_bot_opponent and session.game.current_turn_player_id == 99999:
+        session.turn_timer_task = loop.create_task(bot_turn_worker(session))
         return
 
     async def turn_timer_worker():
@@ -81,7 +147,6 @@ def start_turn_timer(session: RoomSession):
                             "game_over": True
                         })
                     else:
-                        # Still has lifelines: automatically schedule 60s timer for next player!
                         start_turn_timer(session)
 
                     await send_sync_states(session)
@@ -90,7 +155,6 @@ def start_turn_timer(session: RoomSession):
         except Exception as e:
             logger.error(f"Error in turn_timer_worker: {e}")
 
-    loop = asyncio.get_event_loop()
     session.turn_timer_task = loop.create_task(turn_timer_worker())
 
 def persist_game_end_to_db(session: RoomSession, db: Session):
@@ -224,35 +288,62 @@ async def websocket_room_endpoint(
 
         # Initialize or populate Game Engine
         if not session.game and db_room:
-            # Check if player2 joined
             p2 = db.query(User).filter(User.id == db_room.player2_id).first() if db_room.player2_id else None
             p1 = db.query(User).filter(User.id == db_room.player1_id).first()
-            if p1 and p2:
+            if p1:
                 session.game = LetterDuelGame(
                     room_code=room_code,
                     player1_id=p1.id,
-                    player2_id=p2.id,
+                    player2_id=p2.id if p2 else None,
                     player1_username=p1.username,
-                    player2_username=p2.username,
+                    player2_username=p2.username if p2 else None,
                     player1_avatar=p1.avatar or "avatar-1",
-                    player2_avatar=p2.avatar or "avatar-2",
+                    player2_avatar=(p2.avatar if p2 else None) or "avatar-2",
                     allow_custom_words=session.allow_custom_words
                 )
+        elif session.game and db_room and db_room.player2_id and not session.game.player2_id:
+            p2 = db.query(User).filter(User.id == db_room.player2_id).first()
+            if p2:
+                session.game.add_player2(p2.id, p2.username, p2.avatar or "avatar-2")
 
-        # Notify room of join/reconnect
+        # Send recent chat history to reconnecting/connecting client
+        if db_room:
+            past_chats = (
+                db.query(DBChatMessage)
+                .filter(DBChatMessage.room_id == db_room.id)
+                .order_by(DBChatMessage.created_at.asc())
+                .limit(50)
+                .all()
+            )
+            chat_list = []
+            for c in past_chats:
+                sender_name = c.sender.username if c.sender else "SYSTEM"
+                sender_av = c.sender.avatar if c.sender else None
+                chat_list.append({
+                    "id": c.id,
+                    "sender_id": c.sender_id,
+                    "sender_username": sender_name,
+                    "sender_avatar": sender_av,
+                    "message": c.message,
+                    "is_system": c.is_system,
+                    "timestamp": c.created_at.isoformat() if c.created_at else None
+                })
+            await websocket.send_text(json.dumps({"type": "chat_history", "data": chat_list}))
+
+        # Notify room of join/reconnect (exclude sender from receiving their own notification)
         if is_reconnect:
             await broadcast_to_room(session, "reconnected", {
                 "player_id": player_id,
                 "username": user.username,
                 "message": f"{user.username} has reconnected to the duel."
-            })
+            }, sender_ws=websocket)
         else:
             await broadcast_to_room(session, "player_joined", {
                 "player_id": player_id,
                 "username": user.username,
                 "avatar": user.avatar,
                 "message": f"{user.username} entered the room."
-            })
+            }, sender_ws=websocket)
 
         await send_sync_states(session)
 
@@ -270,6 +361,8 @@ async def websocket_room_endpoint(
             # 1. PLAYER READY
             if msg_type == "player_ready":
                 if session.game:
+                    if session.game.is_bot_opponent:
+                        session.game.ready_players.add(99999)
                     ok, notice = session.game.set_player_ready(player_id)
                     if ok:
                         await broadcast_to_room(session, "player_ready", {
@@ -480,11 +573,24 @@ async def websocket_room_endpoint(
                     # In LOBBY
                     if session.game:
                         session.game.ready_players.discard(player_id)
+                    
+                    db_room = db.query(DBRoom).filter(DBRoom.room_code == room_code).first()
+                    if db_room:
+                        if db_room.player1_id == player_id:
+                            if not db_room.player2_id or db_room.player2_id == 99999:
+                                db.delete(db_room)
+                            else:
+                                db_room.status = "ABANDONED"
+                        elif db_room.player2_id == player_id:
+                            db_room.player2_id = None
+                            db_room.status = "WAITING"
+                        db.commit()
+
                     await broadcast_to_room(session, "player_left", {
                         "player_id": player_id,
                         "username": user.username,
                         "message": f"{user.username} left the room."
-                    })
+                    }, sender_ws=websocket)
                     await send_sync_states(session)
 
     except WebSocketDisconnect:
@@ -500,7 +606,7 @@ async def websocket_room_endpoint(
             was_explicit = user.id in session.explicit_leaves
             
             # Only start the 60s disconnect grace period if it was an unexpected drop during active game
-            if not was_explicit and session.game and session.game.state == "PLAYING":
+            if not was_explicit and session.game and session.game.state in ("PLAYING", "WORD_SELECTION"):
                 await broadcast_to_room(session, "opponent_disconnected", {
                     "player_id": user.id,
                     "username": user.username,

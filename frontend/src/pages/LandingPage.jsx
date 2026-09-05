@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
-import { Swords, PlusCircle, ArrowRightCircle, Trophy, BookOpen, Flame, Zap, Shield, Sparkles } from 'lucide-react';
+import { Swords, PlusCircle, ArrowRightCircle, Trophy, BookOpen, Flame, Zap, Shield, Sparkles, Users } from 'lucide-react';
 
-export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onRoomCreated, onRoomJoined }) {
+export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenMatchmaking, onRoomCreated, onRoomJoined }) {
   const { user, token } = useAuth();
   const { playClick, playHit, playMiss } = useSound();
 
@@ -24,6 +24,17 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
         if (Array.isArray(data)) setTopPlayers(data);
       })
       .catch(err => console.error(err));
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('join');
+      if (code && code.trim().length === 6) {
+        setJoinCode(code.trim().toUpperCase());
+        setShowJoinModal(true);
+      }
+    } catch {
+      // silent
+    }
   }, []);
 
   const handleCreateRoom = async () => {
@@ -45,7 +56,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed to create room');
-      
+
       playHit();
       onRoomCreated(data.room_code);
     } catch (e) {
@@ -96,11 +107,11 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 20px' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: 'clamp(20px, 4vw, 40px) clamp(12px, 3vw, 20px)' }}>
       {/* Hero Section */}
       <div style={{
         textAlign: 'center',
-        padding: '50px 20px',
+        padding: 'clamp(24px, 5vw, 50px) clamp(8px, 2vw, 16px)',
         position: 'relative'
       }}>
         {/* Glow ambient background element */}
@@ -109,8 +120,8 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: '380px',
-          height: '380px',
+          width: 'min(380px, 80vw)',
+          height: 'min(380px, 80vw)',
           background: 'radial-gradient(circle, rgba(0, 242, 254, 0.15) 0%, rgba(142, 45, 226, 0.1) 50%, transparent 70%)',
           filter: 'blur(50px)',
           zIndex: -1,
@@ -118,14 +129,14 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
         }} />
 
         <div className="badge badge-cyan" style={{ marginBottom: '18px' }}>
-          <Sparkles size={14} /> Competitive 1v1 Real-Time Word Guessing
+          <Users size={14} /> Real-Time 1v1 Online Multiplayer
         </div>
 
         <h1 style={{
           fontFamily: 'var(--font-display)',
-          fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
+          fontSize: 'clamp(2.1rem, 5.5vw, 4.5rem)',
           fontWeight: '900',
-          lineHeight: 1.1,
+          lineHeight: 1.15,
           letterSpacing: '-1px',
           marginBottom: '18px'
         }}>
@@ -140,43 +151,81 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
         </h1>
 
         <p style={{
-          fontSize: '1.15rem',
+          fontSize: 'clamp(0.95rem, 2.5vw, 1.15rem)',
           color: 'var(--text-secondary)',
           maxWidth: '640px',
-          margin: '0 auto 36px auto',
+          margin: '0 auto clamp(20px, 4vw, 36px) auto',
           lineHeight: 1.6
         }}>
           Secretly lock your word. Uncover opponent letter slots one turn at a time.
           Every guess switches turns—test your deduction, anticipate blanks, and claim victory.
         </p>
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* Global Multiplayer Primary Button */}
+        <div style={{ marginBottom: '20px' }}>
           <button 
-            className="btn btn-primary" 
-            style={{ fontSize: '1.1rem', padding: '16px 36px' }}
+            className="btn btn-primary glow-cyan" 
+            style={{
+              fontSize: 'clamp(1rem, 3vw, 1.3rem)',
+              padding: 'clamp(14px, 3vw, 18px) clamp(16px, 4vw, 36px)',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: '0 0 35px rgba(0, 242, 254, 0.45)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              fontWeight: '800',
+              letterSpacing: '0.5px',
+              maxWidth: '100%',
+              whiteSpace: 'normal',
+              textAlign: 'center',
+              lineHeight: 1.3
+            }}
+            onClick={() => {
+              playClick();
+              if (!user) {
+                onOpenAuth();
+              } else {
+                onOpenMatchmaking();
+              }
+            }}
+          >
+            <Zap size={24} color="#03101d" fill="#03101d" style={{ flexShrink: 0 }} />
+            <span>Global Multiplayer (Find Match Online)</span>
+          </button>
+        </div>
+
+        {/* Secondary Private Room Actions */}
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700', width: '100%', marginBottom: '4px' }}>
+            or play with a friend:
+          </span>
+
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: '0.92rem', padding: '10px 18px' }}
             onClick={handleCreateRoom}
             disabled={creating}
           >
-            <PlusCircle size={22} />
-            <span>{creating ? 'Creating Room...' : 'Create Room'}</span>
+            <PlusCircle size={18} />
+            <span>{creating ? 'Creating...' : 'Create Private Room'}</span>
           </button>
 
-          <button 
-            className="btn btn-secondary" 
-            style={{ fontSize: '1.1rem', padding: '16px 36px' }}
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: '0.92rem', padding: '10px 18px' }}
             onClick={() => { playClick(); setShowJoinModal(true); }}
           >
-            <ArrowRightCircle size={22} color="#00f2fe" />
-            <span>Join Room</span>
+            <ArrowRightCircle size={18} color="#00f2fe" />
+            <span>Join with Code</span>
           </button>
 
-          <button 
-            className="btn btn-accent" 
-            style={{ fontSize: '1.1rem', padding: '16px 32px' }}
+          <button
+            className="btn btn-accent"
+            style={{ fontSize: '0.92rem', padding: '10px 18px' }}
             onClick={() => { playClick(); onOpenTutorial(); }}
           >
-            <BookOpen size={20} />
+            <BookOpen size={17} />
             <span>How to Play</span>
           </button>
         </div>
@@ -185,11 +234,11 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
       {/* Feature Pillars */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
         gap: '20px',
-        margin: '50px 0'
+        margin: 'clamp(30px, 6vw, 50px) 0'
       }}>
-        <div className="glass-panel" style={{ padding: '28px' }}>
+        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -210,7 +259,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           </p>
         </div>
 
-        <div className="glass-panel" style={{ padding: '28px' }}>
+        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -231,7 +280,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           </p>
         </div>
 
-        <div className="glass-panel" style={{ padding: '28px' }}>
+        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -255,18 +304,18 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
       {/* Podium Teaser */}
       {topPlayers.length > 0 && (
-        <div className="glass-panel" style={{ padding: '24px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="glass-panel" style={{ padding: 'clamp(16px, 3.5vw, 24px) clamp(16px, 4vw, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <Trophy size={28} color="#ffb300" />
+            <Trophy size={28} color="#ffb300" style={{ flexShrink: 0 }} />
             <div>
-              <div style={{ fontWeight: '800', fontSize: '1.1rem' }}>Top Arena Champion: {topPlayers[0]?.username}</div>
-              <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+              <div style={{ fontWeight: '800', fontSize: '1.05rem' }}>Top Arena Champion: {topPlayers[0]?.username}</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                 {topPlayers[0]?.wins} Wins • {topPlayers[0]?.xp} XP • {topPlayers[0]?.current_streak} Streak
               </div>
             </div>
           </div>
           <button className="btn btn-secondary btn-sm" onClick={() => { playClick(); onOpenLeaderboard(); }}>
-            View Full Leaderboard →
+            View Rankings →
           </button>
         </div>
       )}
@@ -275,10 +324,10 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
       {showJoinModal && (
         <div className="modal-overlay" onClick={() => setShowJoinModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: '12px' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: '10px' }}>
               Enter Room Code
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '18px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '18px' }}>
               Type the 6-character room code sent by your duel opponent.
             </p>
 
@@ -302,19 +351,19 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
                 maxLength={6}
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="e.g. A7K92P"
+                placeholder="A7K92P"
                 style={{
                   width: '100%',
-                  padding: '14px',
+                  padding: '12px',
                   background: 'var(--bg-surface)',
                   border: '2px solid var(--border-glow)',
                   borderRadius: 'var(--radius-md)',
                   color: 'var(--neon-cyan)',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '1.6rem',
+                  fontSize: 'clamp(1.3rem, 5vw, 1.6rem)',
                   fontWeight: '800',
                   textAlign: 'center',
-                  letterSpacing: '4px',
+                  letterSpacing: 'clamp(2px, 1vw, 4px)',
                   outline: 'none',
                   marginBottom: '18px'
                 }}

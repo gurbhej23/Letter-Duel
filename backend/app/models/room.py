@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -11,6 +11,7 @@ class Room(Base):
     player1_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     player2_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     status = Column(String(30), default="WAITING")  # WAITING, READY, WORD_SELECTION, PLAYING, GAME_OVER, EXPIRED
+    is_private = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)
 

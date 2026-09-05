@@ -39,8 +39,13 @@
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-* {
+html {
   box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
@@ -55,8 +60,29 @@ body {
   color: var(--text-primary);
   font-family: var(--font-body);
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
   overflow-x: hidden;
   user-select: none;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Form input mobile zoom prevention */
+input, select, textarea, button {
+  font-family: inherit;
+}
+
+@media (max-width: 640px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS Safari */
+  }
 }
 
 /* Custom Scrollbar */
@@ -101,7 +127,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 24px;
+  min-height: 44px;
+  padding: 10px 20px;
   border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-weight: 700;
@@ -112,6 +139,8 @@ body {
   border: none;
   outline: none;
   text-decoration: none;
+  touch-action: manipulation;
+  white-space: nowrap;
 }
 
 .btn:active {
@@ -161,14 +190,17 @@ body {
 }
 
 .btn-sm {
-  padding: 8px 14px;
+  min-height: 38px;
+  padding: 6px 14px;
   font-size: 0.85rem;
   border-radius: var(--radius-sm);
 }
 
 .btn-icon {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0;
   border-radius: var(--radius-md);
 }
@@ -185,6 +217,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
+  white-space: nowrap;
 }
 .badge-cyan {
   background: rgba(0, 242, 254, 0.12);
@@ -213,12 +246,16 @@ body {
   inset: 0;
   background: rgba(6, 9, 14, 0.85);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 16px;
+  padding: clamp(10px, 3vw, 16px);
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
   animation: fadeIn 0.2s ease-out;
+  overflow-y: auto;
 }
 
 .modal-content {
@@ -227,12 +264,34 @@ body {
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 500px;
-  max-height: 90vh;
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
-  padding: 28px;
+  overflow-x: hidden;
+  padding: clamp(18px, 4vw, 28px);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: auto;
 }
+
+/* Leaderboard Responsive Table */
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 58px 64px 58px;
+  align-items: center;
+  padding: 12px 14px;
+}
+
+@media (max-width: 480px) {
+  .leaderboard-row {
+    grid-template-columns: 32px 1fr 50px 50px !important;
+    padding: 10px 10px !important;
+    font-size: 0.82rem !important;
+  }
+  .leaderboard-col-winrate {
+    display: none !important;
+  }
+}
+
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -248,28 +307,38 @@ body {
 .word-slots {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: clamp(4px, 1.2vw, 10px);
   justify-content: center;
   align-items: center;
-  margin: 20px 0;
+  margin: 18px 0;
+  max-width: 100%;
 }
 
 .letter-slot {
-  width: 52px;
-  height: 64px;
+  width: clamp(28px, 6.2vw, 52px);
+  height: clamp(38px, 8.2vw, 64px);
   background: linear-gradient(180deg, #182236 0%, #101624 100%);
   border: 2px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border-radius: clamp(6px, 1.5vw, 12px);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
-  font-size: 1.85rem;
+  font-size: clamp(1.1rem, 3.8vw, 1.85rem);
   font-weight: 800;
   color: var(--text-primary);
   box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.05), 0 6px 14px rgba(0, 0, 0, 0.4);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+  flex-shrink: 0;
+}
+
+/* Dense mode for long words (9+ chars) */
+.word-slots.dense-slots .letter-slot {
+  width: clamp(22px, 5vw, 40px);
+  height: clamp(32px, 7vw, 52px);
+  font-size: clamp(0.95rem, 3.2vw, 1.45rem);
+  border-radius: 6px;
 }
 
 .letter-slot.revealed {
@@ -281,10 +350,10 @@ body {
 }
 
 .letter-slot.opponent-view {
-  width: 36px;
-  height: 44px;
-  font-size: 1.25rem;
-  border-radius: 8px;
+  width: clamp(20px, 4.5vw, 36px);
+  height: clamp(26px, 5.8vw, 44px);
+  font-size: clamp(0.85rem, 2.8vw, 1.25rem);
+  border-radius: 6px;
 }
 
 @keyframes flipSlot {
@@ -304,20 +373,23 @@ body {
 
 .keyboard-row {
   display: flex;
-  gap: 6px;
+  gap: clamp(3px, 1vw, 6px);
   justify-content: center;
+  width: 100%;
 }
 
 .key-btn {
   flex: 1;
   max-width: 54px;
-  height: 52px;
+  min-width: 0;
+  height: clamp(42px, 6vh, 52px);
+  min-height: 42px;
   background: #171f30;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: clamp(6px, 1.5vw, 10px);
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: 1.2rem;
+  font-size: clamp(0.95rem, 2.5vw, 1.2rem);
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -326,6 +398,7 @@ body {
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
   transition: all 0.15s ease;
   user-select: none;
+  touch-action: manipulation;
 }
 
 .key-btn:hover:not(:disabled) {
@@ -362,12 +435,12 @@ body {
 
 /* Turn Indicator Pulse */
 .turn-banner {
-  padding: 14px 24px;
+  padding: 12px 20px;
   border-radius: var(--radius-md);
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.15rem;
-  letter-spacing: 1px;
+  font-size: 1.05rem;
+  letter-spacing: 0.5px;
   text-align: center;
   margin-bottom: 20px;
   transition: all 0.3s ease;
@@ -396,7 +469,8 @@ body {
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: 380px;
+  height: 480px;
+  max-height: 80vh;
   background: rgba(14, 18, 28, 0.85);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -413,11 +487,12 @@ body {
 }
 
 .chat-bubble {
-  max-width: 80%;
+  max-width: 85%;
   padding: 8px 14px;
   border-radius: 12px;
   font-size: 0.9rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
@@ -444,6 +519,7 @@ body {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   text-align: center;
+  max-width: 95%;
 }
 
 .chat-input-bar {
@@ -471,8 +547,10 @@ body {
 /* Toast Notifications */
 .toast-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  right: max(20px, env(safe-area-inset-right));
+  left: auto;
+  max-width: calc(100vw - 32px);
   z-index: 2000;
   display: flex;
   flex-direction: column;
@@ -492,6 +570,7 @@ body {
   align-items: center;
   gap: 10px;
   animation: slideInRight 0.25s ease-out;
+  overflow-wrap: anywhere;
 }
 
 @keyframes slideInRight {
@@ -499,8 +578,67 @@ body {
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* Mobile & Tablet Responsive Media Queries */
-@media (max-width: 900px) {
+/* Mobile Navigation Bar & Drawer Styles */
+.desktop-nav-items {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-nav-toggle {
+  display: none;
+}
+
+.mobile-nav-drawer {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background: rgba(12, 16, 26, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 242, 254, 0.2);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 99;
+  animation: slideDownNav 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDownNav {
+  from { transform: translateY(-16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.mobile-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  text-decoration: none;
+  cursor: pointer;
+  min-height: 48px;
+  width: 100%;
+}
+
+.mobile-nav-item:active {
+  background: #28334b;
+  border-color: var(--neon-cyan);
+}
+
+/* Responsive Breakpoints */
+
+/* Tablets (641px - 1024px) */
+@media (max-width: 1024px) {
   .duel-arena-grid {
     grid-template-columns: 1fr !important;
   }
@@ -510,48 +648,43 @@ body {
   .mobile-hidden {
     display: none !important;
   }
+  .chat-container {
+    height: 440px !important;
+  }
 }
 
+/* Mobile Viewports (<= 640px) */
 @media (max-width: 640px) {
-  body {
-    padding-bottom: 20px;
+  .desktop-nav-items {
+    display: none !important;
+  }
+  .mobile-nav-toggle {
+    display: flex !important;
   }
 
   .nav-brand-title {
-    font-size: 1.1rem !important;
+    font-size: 1.15rem !important;
   }
   .nav-brand-subtitle {
     display: none !important;
   }
 
-  .nav-actions {
-    gap: 6px !important;
-  }
-
-  .nav-btn-text {
-    display: none !important;
-  }
-
-  .user-badge-details {
-    display: none !important;
-  }
-
   .word-slots {
-    gap: 6px !important;
-    margin: 12px 0 !important;
+    gap: 5px !important;
+    margin: 14px 0 !important;
   }
 
   .letter-slot {
-    width: clamp(28px, 7.5vw, 42px) !important;
-    height: clamp(38px, 9.5vw, 54px) !important;
-    font-size: clamp(1.1rem, 4.5vw, 1.5rem) !important;
+    width: clamp(26px, 7.5vw, 42px) !important;
+    height: clamp(36px, 9.5vw, 54px) !important;
+    font-size: clamp(1rem, 4.5vw, 1.45rem) !important;
     border-radius: 8px !important;
   }
 
   .letter-slot.opponent-view {
-    width: clamp(20px, 5.5vw, 28px) !important;
-    height: clamp(26px, 7vw, 36px) !important;
-    font-size: clamp(0.85rem, 3.5vw, 1.1rem) !important;
+    width: clamp(18px, 5.5vw, 28px) !important;
+    height: clamp(24px, 7vw, 36px) !important;
+    font-size: clamp(0.8rem, 3.5vw, 1.05rem) !important;
     border-radius: 6px !important;
   }
 
@@ -565,35 +698,57 @@ body {
 
   .key-btn {
     height: 44px !important;
+    min-height: 44px !important;
     font-size: 0.95rem !important;
     border-radius: 6px !important;
-    touch-action: manipulation;
   }
 
   .turn-banner {
-    font-size: 0.9rem !important;
+    font-size: 0.88rem !important;
     padding: 10px 14px !important;
   }
 
-  .modal-content {
-    padding: 18px !important;
-    margin: 10px !important;
-    max-height: 88vh !important;
+  .chat-container {
+    height: 380px !important;
   }
 
-  .chat-container {
-    height: 420px !important;
+  .toast-container {
+    left: 16px;
+    right: 16px;
+    bottom: max(16px, env(safe-area-inset-bottom));
   }
 }
 
+/* Small Mobile Viewports (<= 380px) */
 @media (max-width: 380px) {
   .key-btn {
-    height: 40px !important;
+    height: 42px !important;
+    min-height: 42px !important;
     font-size: 0.85rem !important;
   }
 
   .letter-slot {
-    width: clamp(24px, 6.8vw, 36px) !important;
-    height: clamp(34px, 8.5vw, 46px) !important;
+    width: clamp(22px, 6.8vw, 34px) !important;
+    height: clamp(32px, 8.5vw, 44px) !important;
+    font-size: clamp(0.9rem, 3.8vw, 1.25rem) !important;
+  }
+
+  .btn {
+    padding: 8px 14px !important;
+  }
+}
+
+/* Mobile Landscape Orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal-overlay {
+    align-items: flex-start !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+  .modal-content {
+    max-height: calc(100vh - 20px) !important;
+  }
+  .chat-container {
+    height: 280px !important;
   }
 }

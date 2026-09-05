@@ -171,7 +171,7 @@ export default function AuthModal({ isOpen, onClose }) {
       <div 
         className="modal-content" 
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '480px', padding: '28px' }}
+        style={{ maxWidth: '480px' }}
       >
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
@@ -184,7 +184,8 @@ export default function AuthModal({ isOpen, onClose }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(0, 242, 254, 0.4)'
+              boxShadow: '0 0 16px rgba(0, 242, 254, 0.4)',
+              flexShrink: 0
             }}>
               <ShieldCheck size={22} color="#fff" />
             </div>
@@ -199,9 +200,10 @@ export default function AuthModal({ isOpen, onClose }) {
           </div>
           <button 
             className="btn btn-secondary btn-icon" 
-            style={{ width: '32px', height: '32px' }}
+            style={{ width: '38px', height: '38px', minWidth: '38px', minHeight: '38px' }}
             onClick={() => { playClick(); onClose(); }}
             title="Close"
+            aria-label="Close"
           >
             <X size={18} />
           </button>

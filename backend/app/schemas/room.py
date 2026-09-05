@@ -9,12 +9,16 @@ class RoomCreate(BaseModel):
 class RoomJoin(BaseModel):
     room_code: str
 
+class RoomLeave(BaseModel):
+    room_code: Optional[str] = None
+
 class RoomResponse(BaseModel):
     id: int
     room_code: str
     player1_id: int
     player2_id: Optional[int] = None
     status: str
+    is_private: bool = True
     created_at: datetime
     player1: Optional[UserResponse] = None
     player2: Optional[UserResponse] = None

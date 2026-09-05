@@ -104,7 +104,7 @@ export default function ProfileModal({ isOpen, onClose }) {
         {/* Stats Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 110px), 1fr))',
           gap: '10px',
           marginBottom: '20px'
         }}>
@@ -128,8 +128,8 @@ export default function ProfileModal({ isOpen, onClose }) {
 
         {/* Edit Form */}
         <form onSubmit={handleSave} style={{ marginBottom: '22px' }}>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                 Change Username
               </label>
@@ -144,11 +144,12 @@ export default function ProfileModal({ isOpen, onClose }) {
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-md)',
                   color: '#fff',
-                  outline: 'none'
+                  outline: 'none',
+                  minHeight: '44px'
                 }}
               />
             </div>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving} style={{ minHeight: '44px' }}>
               {saving ? 'Saving...' : 'Update'}
             </button>
           </div>

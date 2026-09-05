@@ -302,11 +302,12 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode }) {
                       )}
                       <button
                         className="btn btn-secondary btn-icon"
-                        style={{ width: '32px', height: '32px' }}
+                        style={{ width: '38px', height: '38px', minWidth: '38px', minHeight: '38px' }}
                         onClick={() => removeFriend(f.friendship_id)}
                         title="Remove Friend"
+                        aria-label="Remove Friend"
                       >
-                        <Trash2 size={14} color="#ff2a6d" />
+                        <Trash2 size={15} color="#ff2a6d" />
                       </button>
                     </div>
                   </div>

@@ -10,24 +10,37 @@ export function SocketProvider({ children }) {
   const { token, user } = useAuth();
   const sound = useSound();
   const [connected, setConnected] = useState(false);
-  const [currentRoomCode, setCurrentRoomCode] = useState(() => sessionStorage.getItem('letter_duel_room_code') || null);
+  const [currentRoomCode, setCurrentRoomCode] = useState(() => {
+    return localStorage.getItem('letter_duel_room_code') || sessionStorage.getItem('letter_duel_room_code') || null;
+  });
   const [gameState, setGameState] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(null);
   const [disconnectTimer, setDisconnectTimer] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [serverClockOffset, setServerClockOffset] = useState(0);
 
   const wsRef = useRef(null);
   const reconnectAttempts = useRef(0);
-  const activeRoomRef = useRef(sessionStorage.getItem('letter_duel_room_code') || null);
+  const intentionalCloseRef = useRef(false);
+  const activeRoomRef = useRef(
+    localStorage.getItem('letter_duel_room_code') || sessionStorage.getItem('letter_duel_room_code') || null
+  );
   const prevTurnPlayerIdRef = useRef(null);
 
   const addToast = useCallback((message, type = "info") => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev.slice(-4), { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
+    if (!message) return;
+    setToasts(prev => {
+      // Deduplicate: do not add if an identical message is already on screen
+      if (prev.some(t => t.message === message)) {
+        return prev;
+      }
+      const id = Date.now() + Math.random();
+      setTimeout(() => {
+        setToasts(curr => curr.filter(t => t.id !== id));
+      }, 3500);
+      return [...prev.slice(-3), { id, message, type }];
+    });
   }, []);
 
   const clearToasts = useCallback(() => {
@@ -53,16 +66,26 @@ export function SocketProvider({ children }) {
 
   const connectToRoom = useCallback((roomCode) => {
     if (!roomCode || !token) return;
-    activeRoomRef.current = roomCode;
-    sessionStorage.setItem('letter_duel_room_code', roomCode);
-    setCurrentRoomCode(roomCode);
+    const cleanCode = roomCode.trim().toUpperCase();
+
+    // Guard: Prevent closing and reconnecting if already connected or connecting to this room
+    if (activeRoomRef.current === cleanCode && wsRef.current && 
+       (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    activeRoomRef.current = cleanCode;
+    sessionStorage.setItem('letter_duel_room_code', cleanCode);
+    localStorage.setItem('letter_duel_room_code', cleanCode);
+    setCurrentRoomCode(cleanCode);
 
     if (wsRef.current) {
+      intentionalCloseRef.current = true;
       wsRef.current.close();
     }
 
-    const wsUrl = getWsUrl(roomCode, token);
-
+    intentionalCloseRef.current = false;
+    const wsUrl = getWsUrl(cleanCode, token);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -70,7 +93,6 @@ export function SocketProvider({ children }) {
       setConnected(true);
       reconnectAttempts.current = 0;
       setDisconnectTimer(null);
-      addToast(`Connected to Room ${roomCode}`, "success");
     };
 
     ws.onmessage = (event) => {
@@ -81,6 +103,11 @@ export function SocketProvider({ children }) {
         if (type === "game_state") {
           setGameState(data);
           
+          if (data.server_time) {
+            const offset = Date.parse(data.server_time) - Date.now();
+            setServerClockOffset(offset);
+          }
+
           // Detect turn switch to current player
           if (data.current_turn_player_id === user?.id && prevTurnPlayerIdRef.current !== user?.id) {
             sound.playTurnChange();
@@ -88,8 +115,15 @@ export function SocketProvider({ children }) {
           }
           prevTurnPlayerIdRef.current = data.current_turn_player_id;
         }
+        else if (type === "chat_history") {
+          if (Array.isArray(data)) {
+            setChatMessages(data);
+          }
+        }
         else if (type === "player_joined") {
-          addToast(data.message, "info");
+          if (data.player_id && data.player_id !== user?.id) {
+            addToast(data.message, "info");
+          }
         }
         else if (type === "game_starting") {
           sound.playCountdown();
@@ -113,7 +147,13 @@ export function SocketProvider({ children }) {
         }
         else if (type === "turn_timeout") {
           sound.playTurnChange();
-          addToast(`⏰ 60s expired! Turn passed to ${data.next_turn_username}.`, "warning");
+          const timedOutUser = data.timed_out_username || "Player";
+          const lives = data.lifelines_remaining;
+          if (data.game_over) {
+            addToast(`⏰ ${timedOutUser} ran out of lifelines (0/3)! Game over.`, "danger");
+          } else {
+            addToast(`⏰ 60s expired! ${timedOutUser} lost 1 lifeline (${lives}/3 remaining). Turn passed.`, "warning");
+          }
         }
         else if (type === "game_won") {
           if (data.winner_id === user?.id) {
@@ -130,19 +170,10 @@ export function SocketProvider({ children }) {
           setDisconnectTimer(data.grace_seconds || 60);
         }
         else if (type === "reconnected") {
-          addToast(data.message, "success");
-          setDisconnectTimer(null);
-        }
-        else if (type === "turn_timeout") {
-          const timedOutUser = data.timed_out_username || "Player";
-          if (data.game_over) {
-            addToast(`⏰ ${timedOutUser} ran out of lifelines (0/3)! Game over.`, "danger");
-            sound.playMiss();
-          } else {
-            const lives = data.lifelines_left ?? 0;
-            addToast(`⏰ ${timedOutUser} timed out! Lost 1 lifeline (${lives}/3 remaining).`, "warning");
-            sound.playMiss();
+          if (data.player_id && data.player_id !== user?.id) {
+            addToast(data.message, "success");
           }
+          setDisconnectTimer(null);
         }
         else if (type === "player_left") {
           addToast(data.message || "Player left the room.", "warning");
@@ -160,6 +191,14 @@ export function SocketProvider({ children }) {
         }
         else if (type === "error") {
           addToast(data.message, "danger");
+          if (data.message === "Room is full." || data.message === "Room not found.") {
+            // Clean local room pointers if rejected
+            sessionStorage.removeItem('letter_duel_room_code');
+            localStorage.removeItem('letter_duel_room_code');
+            sessionStorage.removeItem('letter_duel_view');
+            activeRoomRef.current = null;
+            setCurrentRoomCode(null);
+          }
         }
       } catch (err) {
         console.error("WebSocket message parsing error:", err);
@@ -168,11 +207,11 @@ export function SocketProvider({ children }) {
 
     ws.onclose = () => {
       setConnected(false);
-      // Auto-reconnect if unexpectedly closed
-      if (activeRoomRef.current && reconnectAttempts.current < 5) {
+      // Auto-reconnect ONLY if disconnection was unexpected and still in an active room
+      if (!intentionalCloseRef.current && activeRoomRef.current && reconnectAttempts.current < 3) {
         reconnectAttempts.current += 1;
         setTimeout(() => {
-          if (activeRoomRef.current) {
+          if (!intentionalCloseRef.current && activeRoomRef.current) {
             connectToRoom(activeRoomRef.current);
           }
         }, 2000);
@@ -184,7 +223,13 @@ export function SocketProvider({ children }) {
     };
   }, [token, user?.id, sound, addToast, triggerConfetti]);
 
-  const leaveRoom = useCallback((forfeit = false) => {
+  const leaveRoom = useCallback(async (forfeit = false) => {
+    const codeToLeave = activeRoomRef.current || currentRoomCode;
+    activeRoomRef.current = null;
+    sessionStorage.removeItem('letter_duel_room_code');
+    localStorage.removeItem('letter_duel_room_code');
+    sessionStorage.removeItem('letter_duel_view');
+
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       try {
         wsRef.current.send(JSON.stringify({
@@ -195,18 +240,34 @@ export function SocketProvider({ children }) {
         console.error("Error sending leave/forfeit event:", e);
       }
     }
-    activeRoomRef.current = null;
-    sessionStorage.removeItem('letter_duel_room_code');
+    intentionalCloseRef.current = true;
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
+
+    // Call REST endpoint to ensure DB room and queue are cleared
+    if (token && codeToLeave) {
+      try {
+        await fetch('/api/rooms/leave', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ room_code: codeToLeave })
+        });
+      } catch (e) {
+        // silent
+      }
+    }
+
     setConnected(false);
     setCurrentRoomCode(null);
     setGameState(null);
     setChatMessages([]);
     setDisconnectTimer(null);
-  }, []);
+  }, [token, currentRoomCode]);
 
   const disconnect = useCallback(() => {
     leaveRoom(false);
@@ -219,13 +280,46 @@ export function SocketProvider({ children }) {
     }
   }, [token, connected, currentRoomCode, leaveRoom]);
 
-  // Auto-reconnect on mount or page refresh when user token is ready
+  // Query server for active room and auto-reconnect on mount or page refresh
   useEffect(() => {
-    const savedRoom = sessionStorage.getItem('letter_duel_room_code');
-    if (savedRoom && token && !connected && !wsRef.current) {
-      connectToRoom(savedRoom);
-    }
-  }, [token, connected, connectToRoom]);
+    if (!token) return;
+
+    let isMounted = true;
+    const checkActiveRoom = async () => {
+      try {
+        const res = await fetch('/api/rooms/active', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.has_active_room && data.room_code) {
+            connectToRoom(data.room_code);
+            return;
+          } else {
+            // Server confirmed user has no active match: clean up any stale local keys
+            sessionStorage.removeItem('letter_duel_room_code');
+            localStorage.removeItem('letter_duel_room_code');
+            sessionStorage.removeItem('letter_duel_view');
+          }
+        }
+      } catch {
+        // Network error
+      }
+
+      if (isMounted) {
+        const savedRoom = localStorage.getItem('letter_duel_room_code') || sessionStorage.getItem('letter_duel_room_code');
+        if (savedRoom && !connected && !wsRef.current) {
+          connectToRoom(savedRoom);
+        }
+      }
+    };
+
+    checkActiveRoom();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token, connectToRoom]);
 
   const sendEvent = useCallback((type, data = {}) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -241,6 +335,7 @@ export function SocketProvider({ children }) {
       chatMessages,
       typingUser,
       disconnectTimer,
+      serverClockOffset,
       toasts,
       connectToRoom,
       disconnect,

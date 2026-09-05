@@ -125,16 +125,16 @@ export default function WordSelectModal({ isOpen }) {
                 placeholder="ENTER SECRET WORD"
                 style={{
                   width: '100%',
-                  padding: '16px 20px',
+                  padding: 'clamp(12px, 3vw, 16px) clamp(10px, 2vw, 16px)',
                   background: 'var(--bg-surface)',
                   border: '2px solid var(--border-glow)',
                   borderRadius: 'var(--radius-md)',
                   color: '#fff',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '1.4rem',
+                  fontSize: 'clamp(1.1rem, 4.5vw, 1.4rem)',
                   fontWeight: '800',
                   textAlign: 'center',
-                  letterSpacing: '3px',
+                  letterSpacing: 'clamp(1.5px, 0.8vw, 3px)',
                   outline: 'none'
                 }}
                 autoFocus
@@ -152,7 +152,7 @@ export default function WordSelectModal({ isOpen }) {
             <button
               type="submit"
               className="btn btn-primary"
-              style={{ width: '100%', fontSize: '1.1rem', padding: '14px' }}
+              style={{ width: '100%', fontSize: 'clamp(1rem, 3vw, 1.1rem)', padding: '14px', minHeight: '48px' }}
               disabled={word.length < 5}
             >
               <Lock size={18} /> Lock Secret Word

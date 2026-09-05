@@ -57,21 +57,18 @@ export default function LeaderboardModal({ isOpen, onClose }) {
           border: '1px solid var(--border-subtle)',
           overflow: 'hidden'
         }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '48px 1fr 64px 74px 64px',
-            padding: '12px 16px',
-            background: 'rgba(0,0,0,0.2)',
-            fontSize: '0.76rem',
+          <div className="leaderboard-row" style={{
+            background: 'rgba(0,0,0,0.25)',
+            fontSize: '0.74rem',
             fontWeight: '700',
             color: 'var(--text-muted)',
-            letterSpacing: '1px',
+            letterSpacing: '0.8px',
             textTransform: 'uppercase'
           }}>
             <div>#</div>
             <div>Player</div>
             <div style={{ textAlign: 'center' }}>Wins</div>
-            <div style={{ textAlign: 'center' }}>Win %</div>
+            <div className="leaderboard-col-winrate" style={{ textAlign: 'center' }}>Win %</div>
             <div style={{ textAlign: 'right' }}>XP</div>
           </div>
 
@@ -93,14 +90,11 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                 return (
                   <div 
                     key={player.user_id}
+                    className="leaderboard-row"
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: '48px 1fr 64px 74px 64px',
-                      alignItems: 'center',
-                      padding: '12px 16px',
                       borderBottom: '1px solid rgba(255,255,255,0.04)',
                       background: isGold ? 'rgba(255, 179, 0, 0.05)' : 'transparent',
-                      fontSize: '0.9rem'
+                      fontSize: '0.88rem'
                     }}
                   >
                     {/* Rank */}
@@ -112,25 +106,26 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                     </div>
 
                     {/* Player */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
                       <div style={{
-                        width: '32px',
-                        height: '32px',
+                        width: '30px',
+                        height: '30px',
                         borderRadius: '50%',
                         background: 'linear-gradient(135deg, #00f2fe, #8e2de2)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontWeight: '700',
-                        fontSize: '0.85rem'
+                        fontSize: '0.82rem',
+                        flexShrink: 0
                       }}>
                         {player.username.slice(0, 1).toUpperCase()}
                       </div>
-                      <div>
-                        <div style={{ fontWeight: '700' }}>{player.username}</div>
+                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <div style={{ fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.username}</div>
                         {player.current_streak > 1 && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--neon-amber)' }}>
-                            <Flame size={12} fill="currentColor" /> {player.current_streak} streak
+                            <Flame size={11} fill="currentColor" /> {player.current_streak} streak
                           </div>
                         )}
                       </div>
@@ -142,7 +137,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                     </div>
 
                     {/* Win Rate */}
-                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <div className="leaderboard-col-winrate" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
                       {player.win_rate}%
                     </div>
 
