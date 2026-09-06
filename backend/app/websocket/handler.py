@@ -306,6 +306,13 @@ async def websocket_room_endpoint(
             if p2:
                 session.game.add_player2(p2.id, p2.username, p2.avatar or "avatar-2")
 
+        # In global matchmaking (public rooms), automatically mark both players ready so match immediately begins
+        if session.game and session.game.player1_id and session.game.player2_id and (not session.is_private or not db_room.is_private):
+            if session.game.state == "READY":
+                session.game.ready_players.add(session.game.player1_id)
+                session.game.ready_players.add(session.game.player2_id)
+                session.game.state = "WORD_SELECTION"
+
         # Send recent chat history to reconnecting/connecting client
         if db_room:
             past_chats = (

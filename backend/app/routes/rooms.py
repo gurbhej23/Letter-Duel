@@ -34,7 +34,7 @@ def create_room(
     return RoomResponse.model_validate(db_room)
 
 @router.post("/quickmatch")
-def quickmatch(
+async def quickmatch(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -43,6 +43,8 @@ def quickmatch(
     If an opponent is waiting in the queue, join their room as player2.
     If no opponent is waiting, create a room, add to queue, and wait.
     """
+    from app.websocket.handler import send_sync_states, broadcast_to_room
+
     # 1. Clean up any stale or abandoned rooms for this user if not in active in-memory manager
     stale_rooms = (
         db.query(Room)
@@ -58,6 +60,8 @@ def quickmatch(
         if not mem_room or len(mem_room.connections) == 0:
             if r.status in ("WAITING", "READY", "WORD_SELECTION"):
                 if r.player2_id is None:
+                    room_manager.remove_from_quickmatch_queue(current_user.id)
+                    room_manager.remove_room(r.room_code)
                     db.delete(r)
                 else:
                     r.status = "ABANDONED"
@@ -74,13 +78,15 @@ def quickmatch(
         )
         .first()
     )
-    if live_room and room_manager.get_room(live_room.room_code):
-        return {
-            "matched": True,
-            "room_code": live_room.room_code,
-            "role": "player1" if live_room.player1_id == current_user.id else "player2",
-            "message": "Reconnected to active match!"
-        }
+    if live_room:
+        mem_room = room_manager.get_room(live_room.room_code)
+        if mem_room and mem_room.game and mem_room.game.state == "PLAYING":
+            return {
+                "matched": True,
+                "room_code": live_room.room_code,
+                "role": "player1" if live_room.player1_id == current_user.id else "player2",
+                "message": "Reconnected to active match!"
+            }
 
     # If the user is already in the quickmatch queue, keep waiting
     if current_user.id in room_manager.quickmatch_queue:
@@ -104,14 +110,31 @@ def quickmatch(
             db.refresh(target_room)
 
             session = room_manager.get_room(target_code)
+            p1_user = db.query(User).filter(User.id == target_room.player1_id).first()
+            p1_name = p1_user.username if p1_user else "Opponent"
+            p1_avatar = (p1_user.avatar if p1_user else "avatar-1") or "avatar-1"
+
             if session and session.game:
                 session.game.add_player2(current_user.id, current_user.username, current_user.avatar or "avatar-2")
+                # Auto-ready both players for global multiplayer and advance directly to WORD_SELECTION
+                session.game.ready_players.add(target_room.player1_id)
+                session.game.ready_players.add(current_user.id)
+                session.game.state = "WORD_SELECTION"
+                await broadcast_to_room(session, "game_starting", {
+                    "message": f"Duel matched with {current_user.username}! Choose your secret word."
+                })
+                await send_sync_states(session)
 
             return {
                 "matched": True,
                 "room_code": target_code,
                 "role": "player2",
-                "message": "Opponent found! Match starting..."
+                "opponent": {
+                    "id": target_room.player1_id,
+                    "username": p1_name,
+                    "avatar": p1_avatar
+                },
+                "message": f"Opponent {p1_name} found! Match starting..."
             }
 
     # 3. No opponent currently waiting: create a new room (is_private=False) and wait
@@ -136,14 +159,16 @@ def quickmatch(
     }
 
 @router.post("/quickmatch/auto-opponent")
-def assign_auto_opponent(
+async def assign_auto_opponent(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    If no human opponent joined within 5-10s, pair an online challenger
+    If no human opponent joined within 5-7s, pair an online challenger
     so the match starts immediately and never leaves the player hanging.
     """
+    from app.websocket.handler import send_sync_states, broadcast_to_room
+
     waiting_room = (
         db.query(Room)
         .filter(
@@ -195,12 +220,20 @@ def assign_auto_opponent(
 
     session.game.is_bot_opponent = True
     session.game.ready_players.add(bot_id)
+    session.game.ready_players.add(p1.id)
+    session.game.state = "WORD_SELECTION"
 
     # Pick secret word for challenger from dictionary
     from app.game.words import STANDARD_DICTIONARY
     sample_words = [w for w in STANDARD_DICTIONARY if 5 <= len(w) <= 8] or ["PLANET", "SHADOW", "FALCON", "KNIGHT", "GALAXY"]
     bot_word = random.choice(sample_words).upper()
     session.game.lock_word(bot_id, bot_word)
+
+    # Immediately broadcast to Player 1's active WebSocket connection
+    await broadcast_to_room(session, "game_starting", {
+        "message": f"Online challenger {challenger_name} accepted the duel! Choose your secret word."
+    })
+    await send_sync_states(session)
 
     return {
         "matched": True,

@@ -41,6 +41,18 @@ export default function AuthModal({ isOpen, onClose }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ripples, setRipples] = useState([]);
+
+  const handleBtn3DClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const newRipple = { x, y, id: Date.now() };
+    setRipples((prev) => [...prev, newRipple]);
+    setTimeout(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== newRipple.id));
+    }, 600);
+  };
 
   if (!isOpen) return null;
 
@@ -496,29 +508,58 @@ export default function AuthModal({ isOpen, onClose }) {
             </div>
           )}
 
-          {/* Submit Button */}
+          {/* 3D Interactive Submit Button */}
           <button 
             type="submit" 
-            className="btn btn-primary" 
+            className="btn btn-primary btn-3d" 
             disabled={loading}
+            onClick={handleBtn3DClick}
             style={{
-              padding: '12px',
+              padding: '14px',
               fontSize: '1rem',
               fontWeight: '700',
-              marginTop: '4px',
+              marginTop: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px'
+              gap: '10px',
+              position: 'relative',
+              overflow: 'hidden',
+              cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
+            {/* Dynamic 3D click ripple elements */}
+            {ripples.map((ripple) => (
+              <span
+                key={ripple.id}
+                className="ripple-3d"
+                style={{
+                  left: `${ripple.x}px`,
+                  top: `${ripple.y}px`
+                }}
+              />
+            ))}
+
             {loading ? (
               <>
-                <Loader2 size={18} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-                <span>{isRegister ? 'Creating Account...' : 'Authenticating...'}</span>
+                <div className="spinner-3d-wrapper" style={{ width: '22px', height: '22px' }}>
+                  <div className="spinner-3d-ring1" />
+                  <div className="spinner-3d-ring2" />
+                  <div style={{
+                    position: 'absolute',
+                    inset: '6px',
+                    borderRadius: '50%',
+                    background: '#00f2fe',
+                    boxShadow: '0 0 8px #00f2fe'
+                  }} />
+                </div>
+                <span>{isRegister ? 'Forging Profile in Cyber Matrix...' : 'Authorizing Arena Clearance...'}</span>
               </>
             ) : (
-              <span>{isRegister ? 'Create Account & Play' : 'Sign In to Arena'}</span>
+              <>
+                <Sparkles size={18} style={{ filter: 'drop-shadow(0 0 6px #00f2fe)' }} />
+                <span>{isRegister ? 'Create Account & Enter Arena' : 'Sign In to Arena'}</span>
+              </>
             )}
           </button>
         </form>

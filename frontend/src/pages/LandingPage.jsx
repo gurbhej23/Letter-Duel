@@ -161,15 +161,57 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           Every guess switches turns—test your deduction, anticipate blanks, and claim victory.
         </p>
 
+        {/* 3D Floating Decorative Elements */}
+        <div style={{
+          position: 'absolute',
+          top: '15%',
+          left: '8%',
+          width: '42px',
+          height: '42px',
+          borderRadius: '10px',
+          background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(142, 45, 226, 0.25))',
+          border: '1px solid rgba(0, 242, 254, 0.4)',
+          boxShadow: '0 0 20px rgba(0, 242, 254, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '1.2rem',
+          animation: 'float3D 5s ease-in-out infinite, rotateCrystal3D 14s linear infinite',
+          pointerEvents: 'none',
+          opacity: 0.75
+        }}>
+          ⚔️
+        </div>
+
+        <div style={{
+          position: 'absolute',
+          bottom: '20%',
+          right: '8%',
+          width: '38px',
+          height: '38px',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, rgba(255, 42, 109, 0.25), rgba(255, 179, 0, 0.25))',
+          border: '1px solid rgba(255, 42, 109, 0.4)',
+          boxShadow: '0 0 20px rgba(255, 42, 109, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '1rem',
+          animation: 'float3D 6s ease-in-out infinite reverse, rotateCrystal3D 18s linear infinite reverse',
+          pointerEvents: 'none',
+          opacity: 0.75
+        }}>
+          ⚡
+        </div>
+
         {/* Global Multiplayer Primary Button */}
         <div style={{ marginBottom: '20px' }}>
           <button 
-            className="btn btn-primary glow-cyan" 
+            className="btn btn-primary glow-cyan btn-3d" 
             style={{
               fontSize: 'clamp(1rem, 3vw, 1.3rem)',
               padding: 'clamp(14px, 3vw, 18px) clamp(16px, 4vw, 36px)',
               borderRadius: 'var(--radius-lg)',
-              boxShadow: '0 0 35px rgba(0, 242, 254, 0.45)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -238,7 +280,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
         gap: '20px',
         margin: 'clamp(30px, 6vw, 50px) 0'
       }}>
-        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
+        <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -259,7 +301,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           </p>
         </div>
 
-        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
+        <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -280,7 +322,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           </p>
         </div>
 
-        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
+        <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -304,7 +346,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
       {/* Podium Teaser */}
       {topPlayers.length > 0 && (
-        <div className="glass-panel" style={{ padding: 'clamp(16px, 3.5vw, 24px) clamp(16px, 4vw, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(16px, 3.5vw, 24px) clamp(16px, 4vw, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <Trophy size={28} color="#ffb300" style={{ flexShrink: 0 }} />
             <div>

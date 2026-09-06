@@ -196,7 +196,7 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           </div>
         ) : (
           <button 
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-sm btn-3d"
             onClick={() => handleNavAction(onOpenAuth)}
           >
             <User size={16} />
@@ -306,7 +306,7 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
             </>
           ) : (
             <button 
-              className="btn btn-primary" 
+              className="btn btn-primary btn-3d" 
               style={{ width: '100%', minHeight: '48px', fontSize: '1rem' }}
               onClick={() => handleNavAction(onOpenAuth)}
             >
