@@ -400,7 +400,8 @@ def join_room(
     # Ensure in-memory session exists
     session = room_manager.get_room(code)
     if not session:
-        room_manager.rooms[code] = room_manager.create_room()
+        session = RoomSession(room_code=code, allow_custom_words=True, is_private=getattr(db_room, "is_private", True))
+        room_manager.rooms[code] = session
 
     return RoomResponse.model_validate(db_room)
 

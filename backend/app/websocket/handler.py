@@ -267,9 +267,17 @@ async def websocket_room_endpoint(
 
         player_id = user.id
         if db_room.player1_id != player_id and db_room.player2_id != player_id:
-            await websocket.send_text(json.dumps({"type": "error", "data": {"message": "Unauthorized: You are not a player in this room."}}))
-            await websocket.close()
-            return
+            # If the room has an open player2 slot and is waiting/ready, assign this user as player2
+            if db_room.player2_id is None and db_room.status in ("WAITING", "READY"):
+                db_room.player2_id = player_id
+                db_room.status = "READY"
+                db.commit()
+                db.refresh(db_room)
+                logger.info(f"Assigned user {user.username} (id: {player_id}) as player2 for room {room_code}")
+            else:
+                await websocket.send_text(json.dumps({"type": "error", "data": {"message": "Unauthorized: You are not a player in this room."}}))
+                await websocket.close()
+                return
 
         if not session:
             session = RoomSession(room_code=room_code)
@@ -285,6 +293,9 @@ async def websocket_room_endpoint(
             logger.info(f"Player {user.username} reconnected before forfeit timer.")
 
         session.connections[player_id] = websocket
+
+        from app.routes.friends import touch_user_online
+        touch_user_online(player_id)
 
         # Initialize or populate Game Engine
         if not session.game and db_room:

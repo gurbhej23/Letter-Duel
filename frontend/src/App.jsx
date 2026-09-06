@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { SoundProvider } from './context/SoundContext';
+import { SoundProvider, useSound } from './context/SoundContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
@@ -17,6 +17,7 @@ import ToastContainer from './components/ToastContainer';
 
 function MainApp() {
   const { user, token } = useAuth();
+  const sound = useSound();
   const { currentRoomCode, gameState, connectToRoom, disconnect, addToast } = useSocket();
 
   // Modal open states
@@ -26,6 +27,7 @@ function MainApp() {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [matchmakingOpen, setMatchmakingOpen] = useState(false);
+  const [incomingChallenge, setIncomingChallenge] = useState(null);
 
   const seenInvitesRef = useRef(new Set());
 
@@ -45,17 +47,19 @@ function MainApp() {
             const inviteKey = `${last.sender_username}_${last.room_code}`;
             if (!seenInvitesRef.current.has(inviteKey)) {
               seenInvitesRef.current.add(inviteKey);
-              addToast(`${last.sender_username} challenged you to Room ${last.room_code}!`, "primary");
+              setIncomingChallenge(last);
+              try { sound.playVictory(); } catch { }
+              addToast(`⚔️ ${last.sender_username} challenged you to a 1v1 duel!`, "primary");
             }
           }
         }
       } catch (e) {
         // silent
       }
-    }, 5000);
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, [token, currentRoomCode, addToast]);
+  }, [token, currentRoomCode, addToast, sound]);
 
   const handleRoomCreated = (code) => {
     connectToRoom(code);
@@ -139,10 +143,13 @@ function MainApp() {
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
       <HowToPlayModal isOpen={tutorialOpen} onClose={() => setTutorialOpen(false)} />
       <LeaderboardModal isOpen={leaderboardOpen} onClose={() => setLeaderboardOpen(false)} />
-      <FriendsModal 
-        isOpen={friendsOpen} 
-        onClose={() => setFriendsOpen(false)} 
-        currentRoomCode={currentRoomCode} 
+      <FriendsModal
+        isOpen={friendsOpen}
+        onClose={() => setFriendsOpen(false)}
+        currentRoomCode={currentRoomCode}
+        onChallengeCreated={(code) => {
+          connectToRoom(code);
+        }}
       />
       <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
       <WordSelectModal isOpen={isWordSelectOpen} />
@@ -153,6 +160,69 @@ function MainApp() {
           connectToRoom(code);
         }}
       />
+
+      {/* Incoming 1v1 Duel Challenge Dialog */}
+      {incomingChallenge && (
+        <div className="modal-overlay" style={{ zIndex: 1200, backdropFilter: 'blur(12px)' }}>
+          <div className="modal-content card-3d-tilt" style={{ maxWidth: '420px', textAlign: 'center', border: '2px solid var(--neon-cyan)', boxShadow: '0 0 45px rgba(0, 242, 254, 0.45)' }}>
+            <div style={{
+              width: '58px',
+              height: '58px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #00f2fe, #8e2de2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px auto',
+              fontSize: '1.8rem',
+              boxShadow: '0 0 25px rgba(0, 242, 254, 0.6)'
+            }}>
+              ⚔️
+            </div>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.45rem', fontWeight: '900', marginBottom: '8px' }}>
+              1v1 DUEL CHALLENGE!
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '22px', lineHeight: 1.5 }}>
+              <strong style={{ color: '#fff', fontSize: '1.05rem' }}>{incomingChallenge.sender_username}</strong> has challenged you to an online 1v1 duel in Room <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--neon-cyan)', fontWeight: '800' }}>{incomingChallenge.room_code}</span>!
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <button
+                className="btn btn-secondary btn-3d"
+                onClick={() => {
+                  sound.playClick();
+                  setIncomingChallenge(null);
+                }}
+              >
+                Decline
+              </button>
+              <button
+                className="btn btn-primary btn-3d glow-cyan"
+                style={{ fontWeight: '800' }}
+                onClick={async () => {
+                  sound.playHit();
+                  const code = incomingChallenge.room_code;
+                  setIncomingChallenge(null);
+                  try {
+                    await fetch('/api/rooms/join', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ room_code: code })
+                    });
+                  } catch (e) {
+                    console.warn("Could not pre-join room:", e);
+                  }
+                  connectToRoom(code);
+                }}
+              >
+                ⚔️ Accept Duel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ToastContainer />
     </div>

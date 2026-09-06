@@ -1,3 +1,4 @@
+import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -29,11 +30,15 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         username=clean_username,
         email=clean_email,
         password_hash=hash_password(user_in.password),
-        avatar=user_in.avatar or "avatar-1"
+        avatar=user_in.avatar or "avatar-1",
+        last_seen=datetime.datetime.utcnow()
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    from app.routes.friends import touch_user_online
+    touch_user_online(user.id)
 
     token = create_access_token({"sub": str(user.id)})
     return Token(access_token=token, token_type="bearer", user=UserResponse.model_validate(user))
@@ -51,11 +56,21 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
             detail="Invalid username/email or password."
         )
 
+    # Immediately stamp last_seen and online status in memory
+    user.last_seen = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+
+    from app.routes.friends import touch_user_online
+    touch_user_online(user.id)
+
     token = create_access_token({"sub": str(user.id)})
     return Token(access_token=token, token_type="bearer", user=UserResponse.model_validate(user))
 
 @router.get("/me", response_model=UserResponse)
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from app.routes.friends import touch_user_online
+    touch_user_online(current_user.id)
     return UserResponse.model_validate(current_user)
 
 @router.put("/profile", response_model=UserResponse)

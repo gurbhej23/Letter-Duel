@@ -191,7 +191,7 @@ export function SocketProvider({ children }) {
         }
         else if (type === "error") {
           addToast(data.message, "danger");
-          if (data.message === "Room is full." || data.message === "Room not found.") {
+          if (data.message === "Room is full." || data.message === "Room not found." || data.message?.includes("Unauthorized")) {
             // Clean local room pointers if rejected
             sessionStorage.removeItem('letter_duel_room_code');
             localStorage.removeItem('letter_duel_room_code');
