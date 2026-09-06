@@ -2,19 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, MessageSquare, Flame, Check, HelpCircle, Clock, Heart } from 'lucide-react';
+import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart } from 'lucide-react';
 
-const DESKTOP_ALPHABET_ROWS = [
+const ALPHABET_ROWS = [
   ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
   ['J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'],
   ['S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
-];
-
-const MOBILE_ALPHABET_ROWS = [
-  ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
-  ['H', 'I', 'J', 'K', 'L', 'M', 'N'],
-  ['O', 'P', 'Q', 'R', 'S', 'T'],
-  ['U', 'V', 'W', 'X', 'Y', 'Z']
 ];
 
 export default function GameArena({ roomCode, onLeaveGame }) {
@@ -66,12 +59,12 @@ export default function GameArena({ roomCode, onLeaveGame }) {
     const interval = setInterval(updateTimer, 250);
     return () => clearInterval(interval);
   }, [
-    gameState?.state, 
-    gameState?.turn_number, 
-    gameState?.current_turn_player_id, 
+    gameState?.state,
+    gameState?.turn_number,
+    gameState?.current_turn_player_id,
     gameState?.turn_expires_at,
-    gameState?.seconds_remaining, 
-    gameState?.is_my_turn, 
+    gameState?.seconds_remaining,
+    gameState?.is_my_turn,
     serverClockOffset,
     sound
   ]);
@@ -191,7 +184,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           fontSize: '0.9rem'
         }}>
           <AlertTriangle size={20} style={{ flexShrink: 0 }} />
-          <span>Opponent disconnected! Waiting {disconnectTimer}s to reconnect or forfeit victory is yours!</span>
+          <span>Opponent disconnected! Waiting {disconnectTimer}s to reconnect or victory is yours!</span>
         </div>
       )}
 
@@ -243,7 +236,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           <span>{isMyTurn ? 'YOUR TURN TO GUESS' : `OPPONENT'S TURN (${opponent?.username || 'Opponent'})`}</span>
         </div>
 
-        {/* Lifelines HUD & Forfeit Action */}
+        {/* Lifelines HUD & Leave Action */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{
             display: 'flex',
@@ -259,18 +252,18 @@ export default function GameArena({ roomCode, onLeaveGame }) {
             {renderLifelines(opponent?.lifelines ?? 3, opponent?.username || "Opp")}
           </div>
 
-          <button 
+          <button
             className="btn btn-secondary btn-sm"
             onClick={() => {
               playClick();
-              if (window.confirm("Are you sure you want to forfeit and leave the duel?")) {
+              if (window.confirm("Are you sure you want to leave the duel?")) {
                 leaveRoom(true);
               }
             }}
-            title="Forfeit and return to menu"
-            aria-label="Forfeit Duel"
+            title="Leave match and return to menu"
+            aria-label="Leave Duel"
           >
-            <Flag size={14} color="#ff2a6d" /> Forfeit
+            <LogOut size={14} color="#ff2a6d" /> Leave
           </button>
         </div>
       </div>
@@ -380,8 +373,8 @@ export default function GameArena({ roomCode, onLeaveGame }) {
             {/* Letter Slots with Dense Scaling for 9+ Letters */}
             <div className={`word-slots ${opponentMask.length > 8 ? 'dense-slots' : ''}`}>
               {opponentMask.map((char, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className={`letter-slot ${char !== '_' ? 'revealed' : ''}`}
                 >
                   {char !== '_' ? char : ''}
@@ -410,38 +403,9 @@ export default function GameArena({ roomCode, onLeaveGame }) {
               </div>
             </div>
 
-            {/* Desktop Keyboard (3 rows of 9/9/8) */}
-            <div className="keyboard-container desktop-keyboard">
-              {DESKTOP_ALPHABET_ROWS.map((row, rIdx) => (
-                <div key={rIdx} className="keyboard-row">
-                  {row.map((letter) => {
-                    const hasGuessed = myGuessedLetters.has(letter);
-                    const isHit = hasGuessed && opponentMask.includes(letter);
-                    const isMiss = hasGuessed && !isHit;
-
-                    let statusClass = '';
-                    if (isHit) statusClass = 'hit';
-                    else if (isMiss) statusClass = 'miss';
-
-                    return (
-                      <button
-                        key={letter}
-                        className={`key-btn ${statusClass}`}
-                        disabled={!isMyTurn || isGameOver || hasGuessed}
-                        onClick={() => handleLetterClick(letter)}
-                        aria-label={`Letter ${letter}`}
-                      >
-                        {letter}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-
-            {/* Mobile Keyboard (4 rows: 7/7/6/6 for large comfortable touch targets) */}
-            <div className="keyboard-container mobile-keyboard">
-              {MOBILE_ALPHABET_ROWS.map((row, rIdx) => (
+            {/* Single Virtual Keyboard */}
+            <div className="keyboard-container">
+              {ALPHABET_ROWS.map((row, rIdx) => (
                 <div key={rIdx} className="keyboard-row">
                   {row.map((letter) => {
                     const hasGuessed = myGuessedLetters.has(letter);
@@ -488,8 +452,8 @@ export default function GameArena({ roomCode, onLeaveGame }) {
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Opponent's progress:</div>
               <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                 {myMask.map((char, idx) => (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     className="letter-slot opponent-view"
                     style={{
                       background: char !== '_' ? 'rgba(255, 42, 109, 0.25)' : 'rgba(255, 255, 255, 0.05)',
@@ -729,8 +693,8 @@ export default function GameArena({ roomCode, onLeaveGame }) {
               >
                 <RefreshCw size={16} />
                 <span>
-                  {hasVotedRematch 
-                    ? (opponentVotedRematch ? 'Rematch Starting...' : 'Rematch Voted (Waiting...)') 
+                  {hasVotedRematch
+                    ? (opponentVotedRematch ? 'Rematch Starting...' : 'Rematch Voted (Waiting...)')
                     : (opponentVotedRematch ? 'Accept Rematch!' : 'Request Rematch')}
                 </span>
               </button>

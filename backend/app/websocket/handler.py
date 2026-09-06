@@ -231,7 +231,7 @@ async def handle_disconnect_grace_period(session: RoomSession, disconnected_play
                 
                 await broadcast_to_room(session, "game_won", {
                     "winner_id": session.game.winner_id,
-                    "reason": "Opponent disconnected and forfeited.",
+                    "reason": "Opponent disconnected and left the match.",
                     "game_over": True
                 })
                 await send_sync_states(session)
@@ -565,13 +565,13 @@ async def websocket_room_endpoint(
                         
                         await broadcast_to_room(session, "game_won", {
                             "winner_id": session.game.winner_id,
-                            "reason": f"{user.username} left/surrendered the duel.",
+                            "reason": f"{user.username} left the duel.",
                             "game_over": True
                         })
                         await broadcast_to_room(session, "chat_message", {
                             "sender_id": None,
                             "sender_username": "SYSTEM",
-                            "message": f"🏳️ {user.username} left/surrendered the match.",
+                            "message": f"🚪 {user.username} left the match.",
                             "is_system": True,
                             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
                         })
