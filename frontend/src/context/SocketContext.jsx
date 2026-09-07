@@ -216,7 +216,7 @@ export function SocketProvider({ children }) {
           if (data.game_over) {
             addToast(`⏰ ${timedOutUser} ran out of lifelines (0/3)! Game over.`, "danger");
           } else {
-            addToast(`⏰ 60s expired! ${timedOutUser} lost 1 lifeline (${lives}/3 remaining). Turn passed.`, "warning");
+            addToast(`⏰ 30s expired! ${timedOutUser} lost 1 lifeline (${lives}/3 remaining). Turn passed.`, "warning");
           }
         }
         else if (type === "game_won") {

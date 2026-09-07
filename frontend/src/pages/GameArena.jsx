@@ -20,7 +20,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const [showFullWordModal, setShowFullWordModal] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [mobileTab, setMobileTab] = useState('arena'); // 'arena' | 'chat'
-  const [secondsLeft, setSecondsLeft] = useState(60);
+  const [secondsLeft, setSecondsLeft] = useState(30);
   const chatBottomRef = useRef(null);
   const typingThrottleRef = useRef(null);
   const lastTypingSentRef = useRef(0);
@@ -37,13 +37,13 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   // Completely immune to client clock skew, and seamlessly resumes upon refresh
   useEffect(() => {
     if (gameState?.state !== 'PLAYING') {
-      setSecondsLeft(60);
+      setSecondsLeft(30);
       lastBeepedSecRef.current = null;
       return;
     }
 
     const updateTimer = () => {
-      let remaining = 60;
+      let remaining = 30;
       if (gameState?.turn_expires_at) {
         const deadline = Date.parse(gameState.turn_expires_at);
         const serverNow = Date.now() + (serverClockOffset || 0);
@@ -239,7 +239,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           </span>
         </div>
 
-        {/* Dynamic Turn Badge with 60s Countdown Clock */}
+        {/* Dynamic Turn Badge with 30s Countdown Clock */}
         <div className={`turn-banner ${isMyTurn ? 'my-turn' : 'opp-turn'}`} style={{
           margin: 0,
           padding: '8px 16px',

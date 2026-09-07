@@ -11,6 +11,15 @@ from app.websocket import handler as ws_handler
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
 
+# Ensure migrations/columns exist for SQLite
+from sqlalchemy import text
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE rooms ADD COLUMN is_private BOOLEAN DEFAULT 0"))
+        conn.commit()
+except Exception:
+    pass
+
 # Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,

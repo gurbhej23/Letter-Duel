@@ -87,10 +87,10 @@ export default function HowToPlayModal({ isOpen, onClose }) {
 
           <div style={{ background: 'rgba(255, 179, 0, 0.08)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255, 179, 0, 0.25)' }}>
             <div style={{ fontWeight: '700', color: 'var(--neon-amber)', marginBottom: '4px' }}>
-              4. 60s Turn Timer & 3 Lifelines
+              4. 30s Turn Timer & 3 Lifelines
             </div>
             <div>
-              Every turn has an authoritative <strong>60-second timer</strong>. If the timer runs out before you make a move, you lose <strong>1 lifeline (❤️)</strong> and turn passes. If you run out of all <strong>3 lifelines</strong>, you are disqualified and your opponent wins!
+              Every turn has an authoritative <strong>30-second timer</strong>. If the timer runs out before you make a move, you lose <strong>1 lifeline (❤️)</strong> and turn passes. If you run out of all <strong>3 lifelines</strong>, you are disqualified and your opponent wins!
             </div>
           </div>
         </div>

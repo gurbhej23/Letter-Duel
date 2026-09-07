@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
-import { X, Swords, CheckCircle2, Zap, ShieldCheck } from 'lucide-react';
+import { X, Swords, CheckCircle2, Zap, ShieldCheck, Clock, RefreshCw } from 'lucide-react';
 
 export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const { user, token } = useAuth();
@@ -15,18 +15,22 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const [matched, setMatched] = useState(false);
   const [matchedOpponent, setMatchedOpponent] = useState(null);
   const [countdown, setCountdown] = useState(3);
+  const [searchTimedOut, setSearchTimedOut] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   const activeRoomCodeRef = useRef(null);
   const matchedRef = useRef(false);
   const countdownIntervalRef = useRef(null);
 
-  // Reset all state when modal opens/closes
+  // Reset all state when modal opens/closes or retries
   useEffect(() => {
     if (!isOpen) {
       setSeconds(0);
       setMatched(false);
       setMatchedOpponent(null);
       setCountdown(3);
+      setSearchTimedOut(false);
+      setRetryKey(0);
       matchedRef.current = false;
       activeRoomCodeRef.current = null;
       if (countdownIntervalRef.current) {
@@ -38,8 +42,18 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     }
 
     matchedRef.current = false;
+    setSearchTimedOut(false);
+    setSeconds(0);
+
     const interval = setInterval(() => {
-      setSeconds((prev) => prev + 1);
+      setSeconds((prev) => {
+        if (prev >= 29) {
+          clearInterval(interval);
+          setSearchTimedOut(true);
+          return 30;
+        }
+        return prev + 1;
+      });
     }, 1000);
 
     return () => {
@@ -48,16 +62,16 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
         clearInterval(countdownIntervalRef.current);
       }
     };
-  }, [isOpen]);
+  }, [isOpen, retryKey]);
 
-  // Dynamic status text updates across search window
+  // Dynamic status text updates across 30s search window
   useEffect(() => {
-    if (!isOpen || matched) return;
+    if (!isOpen || matched || searchTimedOut) return;
     if (seconds === 1) setStatusText('Scanning global pool for an available duelist...');
     if (seconds === 5) setStatusText('Searching for an online opponent...');
     if (seconds === 12) setStatusText('Checking available rivals across servers...');
-    if (seconds >= 20) setStatusText('Waiting for an online player to queue...');
-  }, [seconds, isOpen, matched]);
+    if (seconds >= 20) setStatusText(`Waiting for an online player to queue (${Math.max(0, 30 - seconds)}s left)...`);
+  }, [seconds, isOpen, matched, searchTimedOut]);
 
   // Handle successful match confirmation & countdown
   const triggerMatchConfirmed = (roomCode, opponentData = null) => {
@@ -95,7 +109,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     }, 800);
   };
 
-  // Start matchmaking request when modal opens
+  // Start matchmaking request when modal opens or retries
   useEffect(() => {
     if (!isOpen || !token) return;
 
@@ -138,7 +152,18 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     return () => {
       isMounted = false;
     };
-  }, [isOpen, token]);
+  }, [isOpen, token, retryKey]);
+
+  // Clean up backend quickmatch queue if search reaches 30s timeout
+  useEffect(() => {
+    if (searchTimedOut && token) {
+      fetch('/api/rooms/quickmatch/cancel', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => {});
+      disconnect();
+    }
+  }, [searchTimedOut, token]);
 
   // Detect when second player joins the room via WebSocket in real-time
   useEffect(() => {
@@ -147,6 +172,15 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
       triggerMatchConfirmed(gameState.room_code, opp);
     }
   }, [isOpen, gameState?.player1, gameState?.player2, user?.id]);
+
+  const handleRetry = () => {
+    playClick();
+    setSearchTimedOut(false);
+    setSeconds(0);
+    matchedRef.current = false;
+    setStatusText('Initializing global neural radar...');
+    setRetryKey((k) => k + 1);
+  };
 
   const handleCancel = async () => {
     playClick();
@@ -193,7 +227,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
           overflow: 'hidden'
         }}
       >
-        {!matched ? (
+        {!matched && !searchTimedOut ? (
           /* ======================================================== */
           /* 1. RADAR SCANNING STATE (Matches Sci-Fi Sonar Reference) */
           /* ======================================================== */
@@ -380,7 +414,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               {statusText}
             </p>
 
-            {/* Search Duration */}
+            {/* Search Duration with 30s Limit */}
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -392,10 +426,15 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               marginBottom: '22px'
             }}>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Search Time:
+                Time Left:
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: '800', color: 'var(--neon-cyan)' }}>
-                {formatTime(seconds)}
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '1.1rem',
+                fontWeight: '800',
+                color: (30 - seconds) <= 10 ? '#ff2a6d' : 'var(--neon-cyan)'
+              }}>
+                {Math.max(0, 30 - seconds)}s <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '400' }}>({formatTime(seconds)}/0:30)</span>
               </span>
             </div>
 
@@ -414,6 +453,77 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               </button>
             </div>
           </>
+        ) : searchTimedOut ? (
+          /* ======================================================== */
+          /* 3. 30s SEARCH TIMED OUT STATE                            */
+          /* ======================================================== */
+          <div style={{ animation: 'fadeScaleIn 0.35s ease-out', padding: '12px 6px' }}>
+            <div className="badge badge-amber" style={{
+              marginBottom: '16px',
+              fontSize: '0.82rem',
+              padding: '6px 16px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(255, 179, 0, 0.12)',
+              border: '1px solid rgba(255, 179, 0, 0.3)',
+              color: '#ffb300'
+            }}>
+              <Clock size={15} /> SEARCH TIMED OUT (30s)
+            </div>
+
+            <h2 style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'clamp(1.3rem, 4vw, 1.65rem)',
+              fontWeight: '900',
+              marginBottom: '10px',
+              letterSpacing: '0.5px'
+            }}>
+              No Rivals Found
+            </h2>
+
+            <p style={{
+              color: 'var(--text-secondary)',
+              fontSize: '0.92rem',
+              lineHeight: 1.5,
+              maxWidth: '380px',
+              margin: '0 auto 24px auto'
+            }}>
+              No online challenger joined the queue during the 30-second window. You can restart search or challenge a friend.
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-primary btn-3d"
+                onClick={handleRetry}
+                style={{
+                  padding: '12px 28px',
+                  fontSize: '0.95rem',
+                  fontWeight: '700',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <RefreshCw size={16} /> Retry Search (30s)
+              </button>
+
+              <button
+                className="btn btn-secondary btn-3d"
+                onClick={handleCancel}
+                style={{
+                  padding: '12px 28px',
+                  fontSize: '0.95rem',
+                  fontWeight: '700',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <X size={16} /> Close
+              </button>
+            </div>
+          </div>
         ) : (
           /* ======================================================== */
           /* 2. MATCH FOUND / VS SHOWCASE (Real-World AAA Experience) */

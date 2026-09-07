@@ -40,7 +40,7 @@ class LetterDuelGame:
         self.current_turn_player_id: Optional[int] = None
         self.turn_number: int = 0
         self.turn_started_at: Optional[datetime.datetime] = None
-        self.turn_timeout_seconds: int = 60
+        self.turn_timeout_seconds: int = 30
 
         # Guesses tracking: player_id -> list of guessed letters (upper-case)
         self.guessed_letters: Dict[int, List[str]] = {
@@ -386,7 +386,7 @@ class LetterDuelGame:
             "player_id": timed_out_player_id,
             "username": timed_out_username,
             "type": "turn_timeout",
-            "message": f"Time's up! {timed_out_username} did not guess in 60s. Lifelines left: {new_lives}/3.",
+            "message": f"Time's up! {timed_out_username} did not guess in 30s. Lifelines left: {new_lives}/3.",
             "timestamp": now.isoformat()
         })
 

@@ -106,8 +106,8 @@ async def bot_turn_worker(session: RoomSession):
 
 def start_turn_timer(session: RoomSession):
     """
-    Starts an authoritative 60-second timer for the current player's turn.
-    If the player does not guess within 60s (1 minute), the turn automatically switches to the other player.
+    Starts an authoritative 30-second timer for the current player's turn.
+    If the player does not guess within 30s, the turn automatically switches to the other player.
     If the active player is an online simulated challenger (bot), runs bot_turn_worker.
     """
     cancel_turn_timer(session)
