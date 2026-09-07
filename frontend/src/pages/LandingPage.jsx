@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
+import { useSocket } from '../context/SocketContext';
 import { Swords, PlusCircle, ArrowRightCircle, Trophy, BookOpen, Flame, Zap, Shield, Sparkles, Users } from 'lucide-react';
 
 export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenMatchmaking, onRoomCreated, onRoomJoined }) {
   const { user, token } = useAuth();
   const { playClick, playHit, playMiss } = useSound();
+  const { onlineCount } = useSocket();
 
   const [joinCode, setJoinCode] = useState('');
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -128,8 +130,14 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           pointerEvents: 'none'
         }} />
 
-        <div className="badge badge-cyan" style={{ marginBottom: '18px' }}>
-          <Users size={14} /> Real-Time 1v1 Online Multiplayer
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '18px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div className="badge badge-cyan">
+            <Users size={14} /> Real-Time 1v1 Online Multiplayer
+          </div>
+          <div className="badge" style={{ background: 'rgba(0, 230, 118, 0.1)', border: '1px solid rgba(0, 230, 118, 0.35)', color: '#00e676', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '800' }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#00e676', boxShadow: '0 0 6px #00e676' }} />
+            <span>{onlineCount} Online Now</span>
+          </div>
         </div>
 
         <h1 style={{

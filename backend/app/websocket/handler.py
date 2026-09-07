@@ -294,8 +294,15 @@ async def websocket_room_endpoint(
 
         session.connections[player_id] = websocket
 
-        from app.routes.friends import touch_user_online
-        touch_user_online(player_id)
+        from app.game.presence import presence_manager
+        await presence_manager.add_connection(player_id, websocket)
+        try:
+            await websocket.send_text(json.dumps({
+                "type": "presence_update",
+                "data": {"online_count": presence_manager.get_online_count()}
+            }))
+        except Exception:
+            pass
 
         # Initialize or populate Game Engine
         if not session.game and db_room:
@@ -520,35 +527,51 @@ async def websocket_room_endpoint(
                         })
                         await send_sync_states(session)
 
-            # 6. REAL-TIME CHAT
+            # 6. REAL-TIME CHAT (IMMEDIATE BROADCAST -> ASYNC DB COMMIT)
             elif msg_type == "chat_message":
                 content = (data.get("message") or "").strip()
                 if content:
-                    # Persist chat
-                    db_room = db.query(DBRoom).filter(DBRoom.room_code == room_code).first()
-                    if db_room:
-                        db_chat = DBChatMessage(
-                            room_id=db_room.id,
-                            sender_id=player_id,
-                            message=content[:500],
-                            is_system=False,
-                            created_at=datetime.datetime.now(datetime.timezone.utc)
-                        )
-                        db.add(db_chat)
-                        db.commit()
-
+                    import uuid
+                    msg_id = str(data.get("message_id") or uuid.uuid4())
+                    timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    
+                    # 1. Immediately broadcast to room over WebSocket (Zero DB latency)
                     await broadcast_to_room(session, "chat_message", {
+                        "id": msg_id,
+                        "message_id": msg_id,
                         "sender_id": player_id,
                         "sender_username": user.username,
                         "sender_avatar": user.avatar,
                         "message": content[:500],
                         "is_system": False,
-                        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        "timestamp": timestamp
                     })
 
-            # 7. TYPING INDICATOR
+                    # 2. Persist to database in background thread without blocking event loop
+                    async def _async_save_chat(r_code: str, p_id: int, text: str):
+                        try:
+                            def _db_save():
+                                with SessionLocal() as db_worker:
+                                    r = db_worker.query(DBRoom).filter(DBRoom.room_code == r_code).first()
+                                    if r:
+                                        chat_row = DBChatMessage(
+                                            room_id=r.id,
+                                            sender_id=p_id,
+                                            message=text,
+                                            is_system=False,
+                                            created_at=datetime.datetime.now(datetime.timezone.utc)
+                                        )
+                                        db_worker.add(chat_row)
+                                        db_worker.commit()
+                            await asyncio.to_thread(_db_save)
+                        except Exception as chat_db_err:
+                            logger.error(f"[Chat] Background DB persist error: {chat_db_err}")
+
+                    asyncio.create_task(_async_save_chat(room_code, player_id, content[:500]))
+
+            # 7. TYPING INDICATOR (INSTANT RELAY, ZERO DB)
             elif msg_type == "typing":
-                is_typing = data.get("is_typing", False)
+                is_typing = bool(data.get("is_typing", False))
                 if is_typing:
                     session.typing_players.add(player_id)
                 else:
@@ -558,6 +581,18 @@ async def websocket_room_endpoint(
                     "username": user.username,
                     "is_typing": is_typing
                 }, sender_ws=websocket)
+
+            # HEARTBEAT PING / PONG
+            elif msg_type == "ping":
+                from app.game.presence import presence_manager
+                presence_manager.touch_user(player_id)
+                try:
+                    await websocket.send_text(json.dumps({
+                        "type": "pong",
+                        "data": {"online_count": presence_manager.get_online_count()}
+                    }))
+                except Exception:
+                    pass
 
             # 8. EXPLICIT LEAVE / FORFEIT / LOGOUT
             elif msg_type in ("leave_room", "forfeit"):
@@ -634,5 +669,10 @@ async def websocket_room_endpoint(
                 loop = asyncio.get_event_loop()
                 task = loop.create_task(handle_disconnect_grace_period(session, user.id))
                 session.disconnect_tasks[user.id] = task
+
+        if user:
+            from app.game.presence import presence_manager
+            await presence_manager.remove_connection(user.id, websocket)
+            await room_manager.remove_from_quickmatch_queue(user.id)
 
         db.close()

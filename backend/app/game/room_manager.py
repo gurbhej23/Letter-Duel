@@ -2,10 +2,13 @@ import asyncio
 import datetime
 import random
 import string
+import logging
 from typing import Dict, Optional, Set
 from fastapi import WebSocket
 from app.game.engine import LetterDuelGame
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 def generate_room_code(length: int = 6) -> str:
     """Generate a random, non-sequential, secure 6-character room code."""
@@ -43,8 +46,9 @@ class RoomSession:
 class RoomManager:
     def __init__(self):
         self.rooms: Dict[str, RoomSession] = {}
-        # Quickmatch queue: user_id -> {"user_id": user_id, "room_code": room_code, "created_at": datetime}
+        # Quickmatch queue: user_id -> {"user_id": user_id, "username": str, "avatar": str, "room_code": room_code, "created_at": datetime, "status": str}
         self.quickmatch_queue: Dict[int, dict] = {}
+        self._lock = asyncio.Lock()
 
     def create_room(self, allow_custom_words: bool = True, is_private: bool = True) -> str:
         code = generate_room_code()
@@ -67,32 +71,76 @@ class RoomManager:
                     task.cancel()
             del self.rooms[code]
 
-    def add_to_quickmatch_queue(self, user_id: int, room_code: str):
-        """Register a user who is waiting for an online opponent."""
-        self.quickmatch_queue[user_id] = {
-            "user_id": user_id,
-            "room_code": room_code,
-            "created_at": datetime.datetime.now(datetime.timezone.utc)
-        }
+    async def add_to_quickmatch_queue(self, user_id: int, username: str, avatar: str, room_code: str):
+        """Register a user who is actively waiting for an online opponent."""
+        async with self._lock:
+            self.quickmatch_queue[user_id] = {
+                "user_id": user_id,
+                "username": username,
+                "avatar": avatar,
+                "room_code": room_code,
+                "created_at": datetime.datetime.now(datetime.timezone.utc),
+                "status": "LOOKING_FOR_MATCH"
+            }
+            logger.info(f"[Matchmaking] Player {username} (id: {user_id}) joined queue in room {room_code}. Queue size: {len(self.quickmatch_queue)}")
 
-    def pop_quickmatch_opponent(self, excluding_user_id: int) -> Optional[dict]:
-        """Find and pop the oldest waiting player who is not the same user."""
-        now = datetime.datetime.now(datetime.timezone.utc)
-        # Purge entries older than 3 minutes
-        stale_users = [
-            uid for uid, item in self.quickmatch_queue.items()
-            if (now - item["created_at"]).total_seconds() > 180
-        ]
-        for uid in stale_users:
-            self.quickmatch_queue.pop(uid, None)
+    async def pop_quickmatch_opponent(self, excluding_user_id: int) -> Optional[dict]:
+        """
+        Atomically find and pop the oldest waiting REAL online player.
+        Strict requirements:
+        1. Must NOT be the current user.
+        2. Must be actively connected / verified online in presence_manager.
+        3. Must NOT already be in an active playing duel.
+        4. Room must still exist in memory and be open.
+        """
+        from app.game.presence import presence_manager
 
-        for uid, item in list(self.quickmatch_queue.items()):
-            if uid != excluding_user_id:
-                return self.quickmatch_queue.pop(uid)
-        return None
+        async with self._lock:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            # Purge stale entries (> 90 seconds or closed rooms)
+            stale_uids = []
+            for uid, item in list(self.quickmatch_queue.items()):
+                age = (now - item["created_at"]).total_seconds()
+                room = self.get_room(item["room_code"])
+                # Discard if older than 90s, or room doesn't exist, or user is offline
+                if age > 90 or not room or not presence_manager.is_user_online(uid):
+                    stale_uids.append(uid)
 
-    def remove_from_quickmatch_queue(self, user_id: int):
-        """Remove a player from the queue if they cancel."""
-        self.quickmatch_queue.pop(user_id, None)
+            for uid in stale_uids:
+                logger.info(f"[Matchmaking] Purged stale/offline queue entry for user {uid}")
+                self.quickmatch_queue.pop(uid, None)
+
+            # Find valid candidate
+            for uid, item in list(self.quickmatch_queue.items()):
+                if uid == excluding_user_id:
+                    continue
+
+                # Ensure candidate is not currently in an active PLAYING match
+                candidate_room = self.get_room(item["room_code"])
+                if not candidate_room:
+                    continue
+                if candidate_room.game and candidate_room.game.state in ("PLAYING", "WORD_SELECTION"):
+                    continue
+
+                # Valid human candidate found! Atomically pop and return
+                popped = self.quickmatch_queue.pop(uid)
+                logger.info(f"[Matchmaking] Matched candidate {popped['username']} (id: {uid}) with challenger {excluding_user_id}")
+                return popped
+
+            return None
+
+    async def remove_from_quickmatch_queue(self, user_id: int):
+        """Remove a player from the queue if they cancel or disconnect."""
+        async with self._lock:
+            removed = self.quickmatch_queue.pop(user_id, None)
+            if removed:
+                logger.info(f"[Matchmaking] Removed user {user_id} from queue.")
+
+    def get_queue_count(self) -> int:
+        """Return count of users actively searching for match."""
+        return len(self.quickmatch_queue)
+
+    def is_user_in_queue(self, user_id: int) -> bool:
+        return user_id in self.quickmatch_queue
 
 room_manager = RoomManager()

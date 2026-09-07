@@ -13,23 +13,18 @@ from app.game.room_manager import room_manager
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 
+from app.game.presence import presence_manager
+
 # In-memory invitation storage: receiver_id -> list of invitations
 PENDING_INVITATIONS = {}
 
-# In-memory tracking for online users: user_id -> last_activity_datetime
-ONLINE_USERS: dict[int, datetime.datetime] = {}
-
 def touch_user_online(user_id: int):
     """Stamp user as actively online right now."""
-    ONLINE_USERS[user_id] = datetime.datetime.now(datetime.timezone.utc)
+    presence_manager.touch_user(user_id)
 
 def is_user_online(user_id: int) -> bool:
-    """Check if user had activity in the last 90 seconds."""
-    last_ping = ONLINE_USERS.get(user_id)
-    if not last_ping:
-        return False
-    now = datetime.datetime.now(datetime.timezone.utc)
-    return (now - last_ping).total_seconds() < 90
+    """Check if user had verified activity or an active connection."""
+    return presence_manager.is_user_online(user_id)
 
 @router.get("", response_model=List[FriendItem])
 def get_friends(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

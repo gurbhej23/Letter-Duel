@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.models import User, Room, Game, Guess, ChatMessage, Friendship
-from app.routes import auth, rooms, friends, leaderboard, history
+from app.routes import auth, rooms, friends, leaderboard, history, presence
 from app.websocket import handler as ws_handler
 
 # Initialize database tables
@@ -30,6 +30,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(rooms.router, prefix=settings.API_V1_STR)
 app.include_router(friends.router, prefix=settings.API_V1_STR)
+app.include_router(presence.router, prefix=settings.API_V1_STR)
 app.include_router(leaderboard.router, prefix=settings.API_V1_STR)
 app.include_router(history.router, prefix=settings.API_V1_STR)
 app.include_router(ws_handler.router)

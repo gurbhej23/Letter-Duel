@@ -14,7 +14,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const { user } = useAuth();
   const sound = useSound();
   const { playClick, playKey, playHit, playMiss } = sound;
-  const { gameState, sendEvent, chatMessages, typingUser, disconnectTimer, serverClockOffset, leaveRoom } = useSocket();
+  const { gameState, sendEvent, sendChatMessage, chatMessages, typingUser, disconnectTimer, serverClockOffset, leaveRoom } = useSocket();
 
   const [fullWordInput, setFullWordInput] = useState('');
   const [showFullWordModal, setShowFullWordModal] = useState(false);
@@ -22,8 +22,15 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const [mobileTab, setMobileTab] = useState('arena'); // 'arena' | 'chat'
   const [secondsLeft, setSecondsLeft] = useState(60);
   const chatBottomRef = useRef(null);
+  const typingThrottleRef = useRef(null);
+  const lastTypingSentRef = useRef(0);
 
   const lastBeepedSecRef = useRef(null);
+
+  // Auto-scroll chat box on new messages or typing indicator
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, typingUser]);
 
   // Authoritative server-synchronized countdown timer
   // Synchronized via server turn_expires_at and serverClockOffset calibration
@@ -120,17 +127,44 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   };
 
   // Send chat message
+  // Send chat message with instant optimistic UI
   const handleSendChat = (e) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
-    sendEvent('chat_message', { message: chatInput.trim() });
+    const text = chatInput.trim();
+    if (!text) return;
+    sendChatMessage(text);
     setChatInput('');
     sendEvent('typing', { is_typing: false });
+    if (typingThrottleRef.current) {
+      clearTimeout(typingThrottleRef.current);
+      typingThrottleRef.current = null;
+    }
+    lastTypingSentRef.current = 0;
   };
 
+  // Debounced / throttled typing indicator
   const handleChatInputChange = (e) => {
-    setChatInput(e.target.value);
-    sendEvent('typing', { is_typing: e.target.value.length > 0 });
+    const val = e.target.value;
+    setChatInput(val);
+
+    const now = Date.now();
+    if (val.trim().length > 0) {
+      // Throttle: only send typing event once every 2 seconds while actively typing
+      if (now - lastTypingSentRef.current > 2000) {
+        lastTypingSentRef.current = now;
+        sendEvent('typing', { is_typing: true });
+      }
+      // Auto-clear typing indicator after 2.5s of inactivity
+      if (typingThrottleRef.current) clearTimeout(typingThrottleRef.current);
+      typingThrottleRef.current = setTimeout(() => {
+        sendEvent('typing', { is_typing: false });
+        lastTypingSentRef.current = 0;
+      }, 2500);
+    } else {
+      if (typingThrottleRef.current) clearTimeout(typingThrottleRef.current);
+      sendEvent('typing', { is_typing: false });
+      lastTypingSentRef.current = 0;
+    }
   };
 
   const handleRematch = () => {
@@ -507,7 +541,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                 }
                 const isMine = msg.sender_id === user?.id;
                 return (
-                  <div key={idx} className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`}>
+                  <div key={idx} className={`chat-bubble ${isMine ? 'mine' : 'theirs'}`} style={msg.pending ? { opacity: 0.85 } : {}}>
                     {!isMine && (
                       <div style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--neon-cyan)', marginBottom: '2px' }}>
                         {msg.sender_username}
@@ -517,6 +551,11 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                   </div>
                 );
               })
+            )}
+            {typingUser && (
+              <div className="chat-bubble theirs" style={{ fontStyle: 'italic', opacity: 0.85, fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span>{typingUser} is typing...</span>
+              </div>
             )}
             <div ref={chatBottomRef} />
           </div>

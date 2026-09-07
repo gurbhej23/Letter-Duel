@@ -27,7 +27,7 @@ class LetterDuelGame:
         self.is_bot_opponent = False
 
         # Game state: "WAITING", "READY", "WORD_SELECTION", "PLAYING", "GAME_OVER"
-        self.state = "WAITING" if player2_id is None else "READY"
+        self.state = "WAITING"
         
         # Readiness
         self.ready_players: set[int] = set()

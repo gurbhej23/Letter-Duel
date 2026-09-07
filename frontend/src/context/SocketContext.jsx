@@ -56,6 +56,24 @@ export function SocketProvider({ children }) {
     });
   }, []);
 
+  const [onlineCount, setOnlineCount] = useState(1);
+  const pingIntervalRef = useRef(null);
+  const typingClearTimeoutRef = useRef(null);
+
+  // Initial fetch for online count
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/presence/stats')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (isMounted && data && typeof data.online_count === 'number') {
+          setOnlineCount(Math.max(1, data.online_count));
+        }
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
   const send = useCallback((type, data = {}) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type, data }));
@@ -63,6 +81,34 @@ export function SocketProvider({ children }) {
       console.warn("WebSocket not connected, cannot send:", type, data);
     }
   }, []);
+
+  // Optimistic UI chat message sender
+  const sendChatMessage = useCallback((text) => {
+    const trimmed = (text || '').trim();
+    if (!trimmed || !user) return;
+
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const optimisticMsg = {
+      id: messageId,
+      message_id: messageId,
+      sender_id: user.id,
+      sender_username: user.username,
+      sender_avatar: user.avatar,
+      message: trimmed.slice(0, 500),
+      is_system: false,
+      timestamp: new Date().toISOString(),
+      pending: true
+    };
+
+    // Render immediately on sender UI (Zero delay)
+    setChatMessages(prev => [...prev.slice(-99), optimisticMsg]);
+
+    // Transmit over WebSocket with message_id for server broadcast & de-duplication
+    send('chat_message', {
+      message: trimmed.slice(0, 500),
+      message_id: messageId
+    });
+  }, [user, send]);
 
   const connectToRoom = useCallback((roomCode) => {
     if (!roomCode || !token) return;
@@ -93,6 +139,14 @@ export function SocketProvider({ children }) {
       setConnected(true);
       reconnectAttempts.current = 0;
       setDisconnectTimer(null);
+
+      // Start periodic 20-second heartbeat ping to keep connection alive & refresh presence
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "ping" }));
+        }
+      }, 20000);
     };
 
     ws.onmessage = (event) => {
@@ -100,7 +154,17 @@ export function SocketProvider({ children }) {
         const payload = JSON.parse(event.data);
         const { type, data } = payload;
 
-        if (type === "game_state") {
+        if (type === "presence_update") {
+          if (data && typeof data.online_count === 'number') {
+            setOnlineCount(Math.max(1, data.online_count));
+          }
+        }
+        else if (type === "pong") {
+          if (data && typeof data.online_count === 'number') {
+            setOnlineCount(Math.max(1, data.online_count));
+          }
+        }
+        else if (type === "game_state") {
           setGameState(data);
           
           if (data.server_time) {
@@ -179,14 +243,29 @@ export function SocketProvider({ children }) {
           addToast(data.message || "Player left the room.", "warning");
         }
         else if (type === "chat_message") {
-          setChatMessages(prev => [...prev.slice(-99), data]);
+          // De-duplicate: If message with same message_id exists (optimistic), replace it; otherwise append
+          const incomingKey = data.message_id || data.id;
+          setChatMessages(prev => {
+            const matchIdx = prev.findIndex(m => 
+              (incomingKey && (m.message_id === incomingKey || m.id === incomingKey)) ||
+              (m.sender_id === data.sender_id && m.message === data.message && m.pending)
+            );
+            if (matchIdx !== -1) {
+              const clone = [...prev];
+              clone[matchIdx] = { ...data, pending: false };
+              return clone;
+            }
+            return [...prev.slice(-99), { ...data, pending: false }];
+          });
         }
         else if (type === "typing") {
           if (data.is_typing) {
             setTypingUser(data.username);
-            setTimeout(() => setTypingUser(null), 3000);
+            if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current);
+            typingClearTimeoutRef.current = setTimeout(() => setTypingUser(null), 3000);
           } else {
             setTypingUser(null);
+            if (typingClearTimeoutRef.current) clearTimeout(typingClearTimeoutRef.current);
           }
         }
         else if (type === "error") {
@@ -206,6 +285,10 @@ export function SocketProvider({ children }) {
     };
 
     ws.onclose = () => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
+      }
       setConnected(false);
       // Auto-reconnect ONLY if disconnection was unexpected and still in an active room
       if (!intentionalCloseRef.current && activeRoomRef.current && reconnectAttempts.current < 3) {
@@ -334,6 +417,7 @@ export function SocketProvider({ children }) {
       gameState,
       chatMessages,
       typingUser,
+      onlineCount,
       disconnectTimer,
       serverClockOffset,
       toasts,
@@ -341,6 +425,7 @@ export function SocketProvider({ children }) {
       disconnect,
       leaveRoom,
       sendEvent,
+      sendChatMessage,
       addToast
     }}>
       {children}

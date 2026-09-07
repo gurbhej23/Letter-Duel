@@ -99,7 +99,7 @@ async def quickmatch(
         }
 
     # 2. Check if an opponent is waiting in the queue
-    opponent_entry = room_manager.pop_quickmatch_opponent(excluding_user_id=current_user.id)
+    opponent_entry = await room_manager.pop_quickmatch_opponent(excluding_user_id=current_user.id)
     if opponent_entry:
         target_code = opponent_entry["room_code"]
         target_room = db.query(Room).filter(Room.room_code == target_code).first()
@@ -111,8 +111,8 @@ async def quickmatch(
 
             session = room_manager.get_room(target_code)
             p1_user = db.query(User).filter(User.id == target_room.player1_id).first()
-            p1_name = p1_user.username if p1_user else "Opponent"
-            p1_avatar = (p1_user.avatar if p1_user else "avatar-1") or "avatar-1"
+            p1_name = p1_user.username if p1_user else opponent_entry["username"]
+            p1_avatar = (p1_user.avatar if p1_user else opponent_entry["avatar"]) or "avatar-1"
 
             if session and session.game:
                 session.game.add_player2(current_user.id, current_user.username, current_user.avatar or "avatar-2")
@@ -149,7 +149,12 @@ async def quickmatch(
     db.commit()
     db.refresh(new_room)
 
-    room_manager.add_to_quickmatch_queue(current_user.id, code)
+    await room_manager.add_to_quickmatch_queue(
+        user_id=current_user.id,
+        username=current_user.username,
+        avatar=current_user.avatar or "avatar-1",
+        room_code=code
+    )
 
     return {
         "matched": False,
@@ -158,102 +163,13 @@ async def quickmatch(
         "message": "Searching for an online opponent..."
     }
 
-@router.post("/quickmatch/auto-opponent")
-async def assign_auto_opponent(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    If no human opponent joined within 5-7s, pair an online challenger
-    so the match starts immediately and never leaves the player hanging.
-    """
-    from app.websocket.handler import send_sync_states, broadcast_to_room
-
-    waiting_room = (
-        db.query(Room)
-        .filter(
-            Room.player1_id == current_user.id,
-            Room.player2_id.is_(None),
-            Room.status == "WAITING"
-        )
-        .order_by(Room.created_at.desc())
-        .first()
-    )
-    if not waiting_room:
-        return {"matched": False, "message": "No waiting room found"}
-
-    code = waiting_room.room_code
-    room_manager.remove_from_quickmatch_queue(current_user.id)
-
-    challenger_name = "NovaDuelist"
-    challenger_avatar = "avatar-3"
-    other_user = db.query(User).filter(User.id != current_user.id).first()
-    bot_id = 99999
-    if other_user:
-        challenger_name = other_user.username
-        challenger_avatar = other_user.avatar or "avatar-3"
-
-    waiting_room.player2_id = bot_id
-    waiting_room.status = "READY"
-    db.commit()
-    db.refresh(waiting_room)
-
-    session = room_manager.get_room(code)
-    if not session:
-        session = room_manager.rooms[code] = RoomSession(room_code=code, allow_custom_words=True, is_private=False)
-
-    p1 = current_user
-    if not session.game:
-        session.game = LetterDuelGame(
-            room_code=code,
-            player1_id=p1.id,
-            player2_id=bot_id,
-            player1_username=p1.username,
-            player2_username=challenger_name,
-            player1_avatar=p1.avatar or "avatar-1",
-            player2_avatar=challenger_avatar,
-            allow_custom_words=True,
-            is_private=False
-        )
-    else:
-        session.game.add_player2(bot_id, challenger_name, challenger_avatar)
-
-    session.game.is_bot_opponent = True
-    session.game.ready_players.add(bot_id)
-    session.game.ready_players.add(p1.id)
-    session.game.state = "WORD_SELECTION"
-
-    # Pick secret word for challenger from dictionary
-    from app.game.words import STANDARD_DICTIONARY
-    sample_words = [w for w in STANDARD_DICTIONARY if 5 <= len(w) <= 8] or ["PLANET", "SHADOW", "FALCON", "KNIGHT", "GALAXY"]
-    bot_word = random.choice(sample_words).upper()
-    session.game.lock_word(bot_id, bot_word)
-
-    # Immediately broadcast to Player 1's active WebSocket connection
-    await broadcast_to_room(session, "game_starting", {
-        "message": f"Online challenger {challenger_name} accepted the duel! Choose your secret word."
-    })
-    await send_sync_states(session)
-
-    return {
-        "matched": True,
-        "room_code": code,
-        "role": "player1",
-        "opponent": {
-            "id": bot_id,
-            "username": challenger_name,
-            "avatar": challenger_avatar
-        },
-        "message": f"Online challenger {challenger_name} accepted the duel!"
-    }
-
 @router.post("/quickmatch/cancel")
-def cancel_quickmatch(
+async def cancel_quickmatch(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Cancel matchmaking search and clean up waiting room."""
-    room_manager.remove_from_quickmatch_queue(current_user.id)
+    await room_manager.remove_from_quickmatch_queue(current_user.id)
 
     waiting_room = (
         db.query(Room)
@@ -273,7 +189,7 @@ def cancel_quickmatch(
     return {"status": "cancelled", "message": "Matchmaking search cancelled."}
 
 @router.post("/leave")
-def leave_room(
+async def leave_room(
     leave_in: Optional[RoomLeave] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -282,7 +198,7 @@ def leave_room(
     Explicitly leaves a room/lobby. Cleans up DB records and room manager sessions
     so the user is NEVER re-routed back to the room on page refresh.
     """
-    room_manager.remove_from_quickmatch_queue(current_user.id)
+    await room_manager.remove_from_quickmatch_queue(current_user.id)
 
     query = db.query(Room).filter(
         (Room.player1_id == current_user.id) | (Room.player2_id == current_user.id),

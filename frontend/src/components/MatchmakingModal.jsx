@@ -8,7 +8,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const { user, token } = useAuth();
   const sound = useSound();
   const { playClick, playMiss, playVictory } = sound;
-  const { gameState, connectToRoom, disconnect } = useSocket();
+  const { gameState, connectToRoom, disconnect, onlineCount } = useSocket();
 
   const [seconds, setSeconds] = useState(0);
   const [statusText, setStatusText] = useState('Initializing global neural radar...');
@@ -50,13 +50,13 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     };
   }, [isOpen]);
 
-  // Dynamic status text updates across 5-10s search window
+  // Dynamic status text updates across search window
   useEffect(() => {
     if (!isOpen || matched) return;
-    if (seconds === 1) setStatusText('Scanning online duelists in global pool...');
-    if (seconds === 3) setStatusText('Checking available rivals across servers...');
-    if (seconds === 5) setStatusText('Pinging compatible challengers...');
-    if (seconds >= 7) setStatusText('Locking onto matched opponent...');
+    if (seconds === 1) setStatusText('Scanning global pool for an available duelist...');
+    if (seconds === 5) setStatusText('Searching for an online opponent...');
+    if (seconds === 12) setStatusText('Checking available rivals across servers...');
+    if (seconds >= 20) setStatusText('Waiting for an online player to queue...');
   }, [seconds, isOpen, matched]);
 
   // Handle successful match confirmation & countdown
@@ -148,35 +148,6 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     }
   }, [isOpen, gameState?.player1, gameState?.player2, user?.id]);
 
-  // Fallback: If no human joined after 6 seconds, pair with an online challenger
-  useEffect(() => {
-    if (!isOpen || matchedRef.current || !token) return;
-
-    if (seconds >= 6 && activeRoomCodeRef.current) {
-      const triggerAutoOpponent = async () => {
-        try {
-          const res = await fetch('/api/rooms/quickmatch/auto-opponent', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`
-            }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.matched && !matchedRef.current) {
-              triggerMatchConfirmed(data.room_code, data.opponent);
-            }
-          }
-        } catch (e) {
-          console.error("Auto opponent error:", e);
-        }
-      };
-
-      triggerAutoOpponent();
-    }
-  }, [seconds, isOpen, token]);
-
   const handleCancel = async () => {
     playClick();
     matchedRef.current = true;
@@ -227,6 +198,31 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
           /* 1. RADAR SCANNING STATE (Matches Sci-Fi Sonar Reference) */
           /* ======================================================== */
           <>
+            {/* Live Real-Time Online Count Indicator */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(0, 230, 118, 0.08)',
+              border: '1px solid rgba(0, 230, 118, 0.28)',
+              padding: '5px 14px',
+              borderRadius: '20px',
+              fontSize: '0.8rem',
+              fontWeight: '800',
+              color: '#00e676',
+              marginBottom: '16px',
+              boxShadow: '0 0 12px rgba(0, 230, 118, 0.15)'
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#00e676',
+                boxShadow: '0 0 8px #00e676'
+              }} />
+              <span>ONLINE: {onlineCount}</span>
+            </div>
+
             <div style={{
               perspective: '800px',
               margin: '0 auto 20px auto',
