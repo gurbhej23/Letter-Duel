@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart } from 'lucide-react';
+import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart, Lightbulb } from 'lucide-react';
 import { getRankMeta } from '../utils/rankUtils';
 
 const ALPHABET_ROWS = [
@@ -263,13 +263,13 @@ export default function GameArena({ roomCode, onLeaveGame }) {
             display: 'inline-flex',
             alignItems: 'center',
             gap: '5px',
-            background: secondsLeft <= 10 ? 'rgba(255, 42, 109, 0.2)' : 'rgba(0, 0, 0, 0.25)',
+            background: secondsLeft <= 10 ? 'rgba(255, 42, 109, 0.2)' : 'var(--bg-surface-elevated)',
             padding: '3px 8px',
             borderRadius: 'var(--radius-sm)',
-            border: secondsLeft <= 10 ? '1px solid var(--neon-rose)' : '1px solid rgba(255,255,255,0.1)',
+            border: secondsLeft <= 10 ? '1px solid var(--neon-rose)' : '1px solid var(--border-subtle)',
             color: secondsLeft <= 10 ? 'var(--neon-rose)' : (isMyTurn ? 'var(--neon-cyan)' : 'var(--neon-amber)')
           }}>
-            <Clock size={15} color={secondsLeft <= 10 ? "#ff2a6d" : (isMyTurn ? "#00f2fe" : "#ffb300")} />
+            <Clock size={15} color={secondsLeft <= 10 ? "#ff2a6d" : (isMyTurn ? "var(--neon-cyan)" : "var(--neon-amber)")} />
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '900', fontSize: '0.95rem' }}>
               {secondsLeft}s
             </span>
@@ -284,13 +284,13 @@ export default function GameArena({ roomCode, onLeaveGame }) {
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            background: 'rgba(255, 255, 255, 0.04)',
+            background: 'var(--bg-surface-elevated)',
             padding: '6px 12px',
             borderRadius: 'var(--radius-md)',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+            border: '1px solid var(--border-subtle)'
           }}>
             {renderLifelines(me?.lifelines ?? 3, "You")}
-            <div style={{ width: '1px', height: '14px', background: 'rgba(255, 255, 255, 0.15)' }} />
+            <div style={{ width: '1px', height: '14px', background: 'var(--border-subtle)' }} />
             {renderLifelines(opponent?.lifelines ?? 3, opponent?.username || "Opp")}
           </div>
 
@@ -424,6 +424,39 @@ export default function GameArena({ roomCode, onLeaveGame }) {
               ))}
             </div>
 
+            {/* Clue / Meaning Hint */}
+            {gameState?.opponent_hint && (
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                background: 'rgba(0, 242, 254, 0.08)',
+                border: '1px solid rgba(0, 242, 254, 0.28)',
+                boxShadow: '0 0 16px rgba(0, 242, 254, 0.06)',
+                borderRadius: 'var(--radius-md)',
+                padding: '6px 14px',
+                margin: '10px auto 12px auto',
+                fontSize: 'clamp(0.8rem, 2.3vw, 0.88rem)',
+                maxWidth: '96%',
+                lineHeight: 1.4
+              }}>
+                <Lightbulb size={15} color="var(--neon-cyan)" style={{ flexShrink: 0 }} />
+                <span style={{
+                  fontSize: '0.74rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.8px',
+                  fontWeight: 800,
+                  color: 'var(--neon-cyan)'
+                }}>
+                  CLUE:
+                </span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                  {gameState.opponent_hint}
+                </span>
+              </div>
+            )}
+
             <div style={{ fontSize: 'clamp(0.8rem, 2.5vw, 0.85rem)', color: 'var(--text-secondary)' }}>
               {isMyTurn ? "Select a letter below to guess against your opponent's word." : "Waiting for opponent's letter guess..."}
             </div>
@@ -484,8 +517,15 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                 </span>
                 {renderLifelines(me?.lifelines ?? 3, "Your Lives")}
               </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(1.1rem, 3.5vw, 1.25rem)', fontWeight: '800', color: 'var(--neon-cyan)', letterSpacing: '3px' }}>
-                {gameState.my_word}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(1.1rem, 3.5vw, 1.25rem)', fontWeight: '800', color: 'var(--neon-cyan)', letterSpacing: '3px' }}>
+                  {gameState.my_word}
+                </div>
+                {gameState?.my_hint && (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    ({gameState.my_hint})
+                  </span>
+                )}
               </div>
             </div>
 
@@ -727,12 +767,12 @@ export default function GameArena({ roomCode, onLeaveGame }) {
 
               return (
                 <div style={{
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.4) 100%)',
+                  background: 'var(--bg-surface-elevated)',
                   border: `1px solid ${isPromoted ? 'var(--neon-emerald)' : meta.border}`,
                   borderRadius: 'var(--radius-md)',
                   padding: '14px 16px',
                   marginBottom: '16px',
-                  boxShadow: isPromoted ? '0 0 20px rgba(0, 230, 118, 0.3)' : `0 0 16px ${meta.color}20`,
+                  boxShadow: 'none',
                   textAlign: 'center',
                   animation: 'fadeScaleIn 0.5s ease-out'
                 }}>

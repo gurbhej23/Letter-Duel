@@ -1,6 +1,9 @@
 import datetime
+import random
 from typing import Dict, List, Optional, Tuple
 from app.game.words import validate_word
+from app.game.definitions import get_word_definition
+
 
 class LetterDuelGame:
     def __init__(
@@ -13,7 +16,8 @@ class LetterDuelGame:
         player1_avatar: str = "avatar-1",
         player2_avatar: Optional[str] = None,
         allow_custom_words: bool = True,
-        is_private: bool = True
+        is_private: bool = True,
+        reveal_initial_letters: bool = True
     ):
         self.room_code = room_code
         self.player1_id = player1_id
@@ -25,6 +29,7 @@ class LetterDuelGame:
         self.allow_custom_words = allow_custom_words
         self.is_private = is_private
         self.is_bot_opponent = False
+        self.reveal_initial_letters = reveal_initial_letters
 
         # Game state: "WAITING", "READY", "WORD_SELECTION", "PLAYING", "GAME_OVER"
         self.state = "WAITING"
@@ -35,6 +40,14 @@ class LetterDuelGame:
         # Secret words (stored server-side ONLY)
         self.secret_words: Dict[int, str] = {}
         self.word_lengths: Dict[int, int] = {}
+        # Word hints/definitions (player_id -> hint string)
+        self.word_hints: Dict[int, str] = {}
+        # Initial randomly revealed letters: player_id -> list of letters revealed at start
+        self.initial_revealed_letters: Dict[int, List[str]] = {
+            player1_id: []
+        }
+        if player2_id:
+            self.initial_revealed_letters[player2_id] = []
         
         # Turns: player1_id or player2_id
         self.current_turn_player_id: Optional[int] = None
@@ -92,6 +105,7 @@ class LetterDuelGame:
         self.player2_avatar = player2_avatar
         self.guessed_letters[player2_id] = []
         self.discovered_masks[player2_id] = []
+        self.initial_revealed_letters[player2_id] = []
         self.word_guess_attempts[player2_id] = 0
         self.lifelines[player2_id] = self.max_lifelines
         if self.state == "WAITING":
@@ -159,8 +173,8 @@ class LetterDuelGame:
         status_str = "ready" if player_id in self.ready_players else "not ready"
         return True, f"Player marked as {status_str}."
 
-    def lock_word(self, player_id: int, word: str) -> Tuple[bool, str]:
-        """Lock in a secret word for a player."""
+    def lock_word(self, player_id: int, word: str, hint: str = "") -> Tuple[bool, str]:
+        """Lock in a secret word and optional hint for a player."""
         if player_id not in (self.player1_id, self.player2_id):
             return False, "Not a player in this duel."
         
@@ -174,8 +188,23 @@ class LetterDuelGame:
         if not is_valid:
             return False, err
 
-        self.secret_words[player_id] = clean_word.upper()
+        clean_word = clean_word.upper()
+        self.secret_words[player_id] = clean_word
         self.word_lengths[player_id] = len(clean_word)
+
+        # Store hint: use provided custom hint or fallback to dictionary definition
+        custom_hint = hint.strip() if hint else ""
+        if not custom_hint:
+            custom_hint = get_word_definition(clean_word)
+        self.word_hints[player_id] = custom_hint
+
+        # If opponent is a bot and hasn't locked yet, auto-select a bot word and definition
+        if self.is_bot_opponent and self.player2_id and self.player2_id not in self.secret_words:
+            bot_words = ["CASTLE", "DRAGON", "GUITAR", "HORIZON", "PLANET", "SILVER", "WARRIOR", "DIAMOND"]
+            bot_choice = random.choice(bot_words)
+            self.secret_words[self.player2_id] = bot_choice
+            self.word_lengths[self.player2_id] = len(bot_choice)
+            self.word_hints[self.player2_id] = get_word_definition(bot_choice)
 
         # Check if both players have locked words
         if len(self.secret_words) == 2:
@@ -184,8 +213,45 @@ class LetterDuelGame:
 
         return True, "Secret word locked! Waiting for opponent..."
 
+    def _apply_initial_reveals(self, guesser_id: int, target_word: str):
+        """
+        Reveals 1 to 3 random letters of the opponent's word at match start.
+        Ensures at least 2 distinct letters remain unrevealed so the word is never pre-solved.
+        """
+        if not self.reveal_initial_letters or not target_word:
+            return
+
+        unique_letters = list(dict.fromkeys(target_word))
+        num_unique = len(unique_letters)
+        max_possible = max(0, num_unique - 2)
+        if max_possible < 1:
+            return
+
+        word_len = len(target_word)
+        if word_len <= 5:
+            k = min(1, max_possible)
+        elif 6 <= word_len <= 8:
+            k = min(random.randint(1, 2), max_possible)
+        else:  # 9+ letters
+            k = min(random.randint(2, 3), max_possible)
+
+        if k <= 0:
+            return
+
+        chosen_letters = random.sample(unique_letters, k)
+        self.initial_revealed_letters[guesser_id] = list(chosen_letters)
+
+        for letter in chosen_letters:
+            # Uncover all occurrences in discovered mask
+            for idx, ch in enumerate(target_word):
+                if ch == letter:
+                    self.discovered_masks[guesser_id][idx] = letter
+            # Mark as guessed so it displays as hit and avoids duplicate turns
+            if letter not in self.guessed_letters[guesser_id]:
+                self.guessed_letters[guesser_id].append(letter)
+
     def start_game(self):
-        """Initialize playing state and masks."""
+        """Initialize playing state, masks, and reveal initial clue letters."""
         self.state = "PLAYING"
         now = datetime.datetime.now(datetime.timezone.utc)
         self.started_at = now
@@ -195,15 +261,26 @@ class LetterDuelGame:
 
         # Initialize discovered masks
         # Player 1 is guessing Player 2's word
-        p2_len = self.word_lengths[self.player2_id]
+        p2_word = self.secret_words.get(self.player2_id, "")
+        p2_len = self.word_lengths.get(self.player2_id, len(p2_word))
         self.discovered_masks[self.player1_id] = ["_"] * p2_len
 
         # Player 2 is guessing Player 1's word
-        p1_len = self.word_lengths[self.player1_id]
-        self.discovered_masks[self.player2_id] = ["_"] * p1_len
+        p1_word = self.secret_words.get(self.player1_id, "")
+        p1_len = self.word_lengths.get(self.player1_id, len(p1_word))
+        if self.player2_id:
+            self.discovered_masks[self.player2_id] = ["_"] * p1_len
 
         # Reset lifelines for duel
-        self.lifelines = {self.player1_id: self.max_lifelines, self.player2_id: self.max_lifelines}
+        self.lifelines = {self.player1_id: self.max_lifelines}
+        if self.player2_id:
+            self.lifelines[self.player2_id] = self.max_lifelines
+
+        # Reveal 1 to 3 random letters for opponent word to both players
+        if p2_word:
+            self._apply_initial_reveals(guesser_id=self.player1_id, target_word=p2_word)
+        if self.player2_id and p1_word:
+            self._apply_initial_reveals(guesser_id=self.player2_id, target_word=p1_word)
 
     def guess_letter(self, player_id: int, letter: str) -> Tuple[bool, dict, str]:
         """
@@ -469,6 +546,10 @@ class LetterDuelGame:
         self.ready_players = {self.player1_id, self.player2_id}
         self.secret_words.clear()
         self.word_lengths.clear()
+        self.word_hints.clear()
+        self.initial_revealed_letters = {self.player1_id: []}
+        if self.player2_id:
+            self.initial_revealed_letters[self.player2_id] = []
         self.current_turn_player_id = None
         self.turn_number = 0
         self.guessed_letters = {self.player1_id: [], self.player2_id: []}
@@ -554,6 +635,9 @@ class LetterDuelGame:
             "my_mask": my_mask,
             "opponent_word_length": self.word_lengths.get(opponent_id, 0),
             "opponent_mask": opponent_mask,
+            "opponent_hint": self.word_hints.get(opponent_id, ""),
+            "my_hint": self.word_hints.get(viewer_player_id, ""),
+            "initial_revealed_letters": self.initial_revealed_letters.get(viewer_player_id, []),
             "my_guessed_letters": self.guessed_letters.get(viewer_player_id, []),
             "opponent_guessed_letters": self.guessed_letters.get(opponent_id, []),
             "opponent_secret_word": opponent_secret_word,  # ONLY when GAME_OVER

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SoundProvider, useSound } from './context/SoundContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import Navbar from './components/Navbar';
+import InteractiveBackground from './components/InteractiveBackground';
 import LandingPage from './pages/LandingPage';
 import LobbyPage from './pages/LobbyPage';
 import GameArena from './pages/GameArena';
@@ -118,7 +120,8 @@ function MainApp() {
   const isWordSelectOpen = Boolean(user && currentRoomCode && gameState?.state === 'WORD_SELECTION');
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <InteractiveBackground />
       <Navbar
         onOpenAuth={() => setAuthOpen(true)}
         onOpenTutorial={() => setTutorialOpen(true)}
@@ -204,7 +207,7 @@ function MainApp() {
       {/* Incoming 1v1 Duel Challenge Dialog */}
       {incomingChallenge && (
         <div className="modal-overlay" style={{ zIndex: 1200, backdropFilter: 'blur(12px)' }}>
-          <div className="modal-content card-3d-tilt" style={{ maxWidth: '420px', textAlign: 'center', border: '2px solid var(--neon-cyan)', boxShadow: '0 0 45px rgba(0, 242, 254, 0.45)' }}>
+          <div className="modal-content card-3d-tilt" style={{ maxWidth: '420px', textAlign: 'center', border: '2px solid var(--neon-cyan)', boxShadow: 'none' }}>
             <div style={{
               width: '58px',
               height: '58px',
@@ -215,7 +218,7 @@ function MainApp() {
               justifyContent: 'center',
               margin: '0 auto 16px auto',
               fontSize: '1.8rem',
-              boxShadow: '0 0 25px rgba(0, 242, 254, 0.6)'
+              boxShadow: 'none'
             }}>
               ⚔️
             </div>
@@ -223,7 +226,7 @@ function MainApp() {
               1v1 DUEL CHALLENGE!
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '22px', lineHeight: 1.5 }}>
-              <strong style={{ color: '#fff', fontSize: '1.05rem' }}>{incomingChallenge.sender_username}</strong> has challenged you to an online 1v1 duel in Room <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--neon-cyan)', fontWeight: '800' }}>{incomingChallenge.room_code}</span>!
+              <strong style={{ color: 'var(--text-primary)', fontSize: '1.05rem' }}>{incomingChallenge.sender_username}</strong> has challenged you to an online 1v1 duel in Room <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--neon-cyan)', fontWeight: '800' }}>{incomingChallenge.room_code}</span>!
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <button
@@ -236,8 +239,8 @@ function MainApp() {
                 Decline
               </button>
               <button
-                className="btn btn-primary btn-3d glow-cyan"
-                style={{ fontWeight: '800' }}
+                className="btn btn-primary btn-3d"
+                style={{ fontWeight: '800', boxShadow: 'none' }}
                 onClick={async () => {
                   sound.playHit();
                   const code = incomingChallenge.room_code;
@@ -271,12 +274,14 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SoundProvider>
-        <SocketProvider>
-          <MainApp />
-        </SocketProvider>
-      </SoundProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <SoundProvider>
+          <SocketProvider>
+            <MainApp />
+          </SocketProvider>
+        </SoundProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

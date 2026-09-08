@@ -233,7 +233,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              background: 'rgba(255, 255, 255, 0.04)',
+              background: 'var(--bg-surface-elevated)',
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-md)',
               padding: '8px 14px',
@@ -320,9 +320,9 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                       justifyContent: 'space-between',
                       padding: '12px 16px',
                       borderRadius: 'var(--radius-md)',
-                      background: isSelected ? tier.bg : 'rgba(255, 255, 255, 0.03)',
-                      border: isSelected ? `2px solid ${tier.color}` : isRecommended ? '1px solid rgba(255, 179, 0, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-                      boxShadow: isSelected ? `0 0 16px ${tier.color}40` : 'none',
+                      background: isSelected ? tier.bg : 'var(--bg-surface-elevated)',
+                      border: isSelected ? `2px solid ${tier.color}` : isRecommended ? '1px solid rgba(255, 179, 0, 0.4)' : '1px solid var(--border-subtle)',
+                      boxShadow: 'none',
                       cursor: (isLocked || !isAffordable) ? 'not-allowed' : 'pointer',
                       opacity: isLocked ? 0.55 : (!isAffordable ? 0.7 : 1),
                       transition: 'all 0.2s ease',
@@ -333,7 +333,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                       <span style={{ fontSize: '1.6rem' }}>{tier.icon}</span>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontWeight: '800', fontSize: '0.98rem', color: isSelected ? '#fff' : 'var(--text-primary)' }}>
+                          <span style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-primary)' }}>
                             {tier.name}
                           </span>
                           {isRecommended && (
@@ -687,12 +687,12 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               gridTemplateColumns: '1fr auto 1fr',
               alignItems: 'center',
               gap: '12px',
-              background: 'rgba(0, 0, 0, 0.45)',
-              border: '2px solid rgba(0, 242, 254, 0.3)',
+              background: 'var(--bg-surface-elevated)',
+              border: '2px solid var(--border-glow)',
               borderRadius: 'var(--radius-lg)',
               padding: '20px 14px',
               marginBottom: '24px',
-              boxShadow: '0 0 30px rgba(0, 242, 254, 0.2)'
+              boxShadow: 'none'
             }}>
               {/* Player 1 (You) */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>

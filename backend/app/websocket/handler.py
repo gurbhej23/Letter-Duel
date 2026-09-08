@@ -527,8 +527,9 @@ async def websocket_room_endpoint(
             # 2. WORD SELECTION / LOCK WORD
             elif msg_type == "word_locked":
                 secret_word = data.get("word", "")
+                hint = data.get("hint", "")
                 if session.game:
-                    ok, notice = session.game.lock_word(player_id, secret_word)
+                    ok, notice = session.game.lock_word(player_id, secret_word, hint)
                     if ok:
                         # Inform opponent ONLY that word is locked (NEVER reveal the word)
                         duel_started = (session.game.state == "PLAYING")

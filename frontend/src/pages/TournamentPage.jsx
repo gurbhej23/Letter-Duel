@@ -473,14 +473,14 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
                     style={{
                       background: participant
                         ? isMe
-                          ? 'rgba(0, 242, 254, 0.12)'
-                          : 'rgba(255, 255, 255, 0.04)'
-                        : 'rgba(0, 0, 0, 0.25)',
+                          ? 'var(--neon-cyan-glow)'
+                          : 'var(--bg-surface-elevated)'
+                        : 'var(--bg-surface-elevated)',
                       border: participant
                         ? isMe
                           ? '1px solid var(--neon-cyan)'
-                          : '1px solid rgba(255, 255, 255, 0.1)'
-                        : '1px dashed rgba(255, 255, 255, 0.12)',
+                          : '1px solid var(--border-subtle)'
+                        : '1px dashed var(--border-subtle)',
                       borderRadius: 'var(--radius-md)',
                       padding: '14px',
                       display: 'flex',

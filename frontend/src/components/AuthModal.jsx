@@ -303,20 +303,20 @@ export default function AuthModal({ isOpen, onClose }) {
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
-              background: 'rgba(0, 0, 0, 0.35)',
+              background: 'var(--bg-surface-elevated)',
               padding: '4px',
               borderRadius: 'var(--radius-md)',
               marginBottom: '20px',
-              border: '1px solid rgba(255, 255, 255, 0.06)'
+              border: '1px solid var(--border-subtle)'
             }}>
           <button
             type="button"
             className="btn"
             style={{
-              background: !isRegister ? 'linear-gradient(135deg, rgba(0, 242, 254, 0.15) 0%, rgba(142, 45, 226, 0.15) 100%)' : 'transparent',
-              color: !isRegister ? '#fff' : 'var(--text-muted)',
-              border: !isRegister ? '1px solid rgba(0, 242, 254, 0.4)' : '1px solid transparent',
-              boxShadow: !isRegister ? '0 2px 10px rgba(0, 242, 254, 0.2)' : 'none',
+              background: !isRegister ? 'var(--bg-card)' : 'transparent',
+              color: !isRegister ? 'var(--neon-cyan)' : 'var(--text-muted)',
+              border: !isRegister ? '1px solid var(--border-glow)' : '1px solid transparent',
+              boxShadow: 'none',
               padding: '9px',
               fontWeight: !isRegister ? '700' : '500',
               fontSize: '0.92rem'
@@ -329,10 +329,10 @@ export default function AuthModal({ isOpen, onClose }) {
             type="button"
             className="btn"
             style={{
-              background: isRegister ? 'linear-gradient(135deg, rgba(0, 242, 254, 0.15) 0%, rgba(142, 45, 226, 0.15) 100%)' : 'transparent',
-              color: isRegister ? '#fff' : 'var(--text-muted)',
-              border: isRegister ? '1px solid rgba(0, 242, 254, 0.4)' : '1px solid transparent',
-              boxShadow: isRegister ? '0 2px 10px rgba(0, 242, 254, 0.2)' : 'none',
+              background: isRegister ? 'var(--bg-card)' : 'transparent',
+              color: isRegister ? 'var(--neon-cyan)' : 'var(--text-muted)',
+              border: isRegister ? '1px solid var(--border-glow)' : '1px solid transparent',
+              boxShadow: 'none',
               padding: '9px',
               fontWeight: isRegister ? '700' : '500',
               fontSize: '0.92rem'
@@ -354,7 +354,7 @@ export default function AuthModal({ isOpen, onClose }) {
             borderRadius: 'var(--radius-md)',
             padding: '10px 14px',
             marginBottom: '14px',
-            boxShadow: '0 4px 16px rgba(255, 179, 0, 0.1)'
+            boxShadow: 'none'
           }}>
             <span style={{ fontSize: '1.4rem' }}>🎁</span>
             <div style={{ textAlign: 'left' }}>
@@ -408,8 +408,8 @@ export default function AuthModal({ isOpen, onClose }) {
                       style={{
                         flex: 1,
                         padding: '8px 4px',
-                        background: isSelected ? 'rgba(0, 242, 254, 0.15)' : 'rgba(255, 255, 255, 0.04)',
-                        border: isSelected ? '2px solid var(--neon-cyan)' : '1px solid rgba(255, 255, 255, 0.08)',
+                        background: isSelected ? 'var(--neon-cyan-glow)' : 'var(--bg-surface-elevated)',
+                        border: isSelected ? '2px solid var(--neon-cyan)' : '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-md)',
                         cursor: 'pointer',
                         display: 'flex',
@@ -447,10 +447,10 @@ export default function AuthModal({ isOpen, onClose }) {
                 style={{
                   width: '100%',
                   padding: '12px 14px 12px 40px',
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--input-bg)',
+                  border: '1px solid var(--input-border)',
                   borderRadius: 'var(--radius-md)',
-                  color: '#fff',
+                  color: 'var(--input-text)',
                   outline: 'none',
                   fontSize: '0.92rem',
                   transition: 'border-color 0.2s ease'
@@ -476,10 +476,10 @@ export default function AuthModal({ isOpen, onClose }) {
                   style={{
                     width: '100%',
                     padding: '12px 14px 12px 40px',
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--input-border)',
                     borderRadius: 'var(--radius-md)',
-                    color: '#fff',
+                    color: 'var(--input-text)',
                     outline: 'none',
                     fontSize: '0.92rem'
                   }}
@@ -504,10 +504,10 @@ export default function AuthModal({ isOpen, onClose }) {
                 style={{
                   width: '100%',
                   padding: '12px 42px 12px 40px',
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--input-bg)',
+                  border: '1px solid var(--input-border)',
                   borderRadius: 'var(--radius-md)',
-                  color: '#fff',
+                  color: 'var(--input-text)',
                   outline: 'none',
                   fontSize: '0.92rem'
                 }}
@@ -567,10 +567,10 @@ export default function AuthModal({ isOpen, onClose }) {
                   style={{
                     width: '100%',
                     padding: '12px 42px 12px 40px',
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--input-border)',
                     borderRadius: 'var(--radius-md)',
-                    color: '#fff',
+                    color: 'var(--input-text)',
                     outline: 'none',
                     fontSize: '0.92rem'
                   }}

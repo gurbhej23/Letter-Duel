@@ -60,10 +60,10 @@ export default function HowToPlayModal({ isOpen, onClose }) {
             <div style={{ fontWeight: '700', color: 'var(--neon-amber)', marginBottom: '8px' }}>
               Turn Example (Bananas vs Apple)
             </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.84rem', background: '#0a0e17', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.84rem', background: 'var(--bg-surface-elevated)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
               <div>Player 1 chooses: <strong>BANANAS</strong> (7 letters)</div>
               <div>Player 2 chooses: <strong>APPLE</strong> (5 letters)</div>
-              <div style={{ margin: '8px 0', borderBottom: '1px dashed rgba(255,255,255,0.1)' }}></div>
+              <div style={{ margin: '8px 0', borderBottom: '1px dashed var(--border-subtle)' }}></div>
               <div>• <strong>P1</strong> guesses "A" → <strong>YES!</strong> (Slot revealed in APPLE)</div>
               <div style={{ color: 'var(--neon-cyan)' }}>↳ Turn switches immediately to Player 2.</div>
               <div>• <strong>P2</strong> guesses "B" → <strong>YES!</strong> (Slot revealed in BANANAS)</div>

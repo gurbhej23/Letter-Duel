@@ -100,7 +100,7 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '1.6rem' }}>{tier.icon}</span>
           <div>
-            <div style={{ fontWeight: '800', fontSize: '1rem', color: '#fff' }}>
+            <div style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-primary)' }}>
               {tier.name}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -147,11 +147,11 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
             alignItems: 'center',
             justifyContent: 'center',
             gap: 'clamp(8px, 2vw, 16px)',
-            background: 'rgba(0, 0, 0, 0.45)',
+            background: 'var(--bg-surface-elevated)',
             border: '2px solid var(--border-glow)',
             padding: 'clamp(10px, 2.5vw, 14px) clamp(14px, 3vw, 28px)',
             borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-cyan)',
+            boxShadow: 'none',
             marginBottom: '16px',
             maxWidth: '100%'
           }}>
@@ -277,7 +277,7 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
             width: '64px',
             height: '64px',
             borderRadius: '50%',
-            background: p2 ? 'linear-gradient(135deg, #8e2de2, #4a00e0)' : 'rgba(255,255,255,0.06)',
+            background: p2 ? 'linear-gradient(135deg, #8e2de2, #4a00e0)' : 'var(--bg-surface-elevated)',
             color: '#fff',
             fontFamily: 'var(--font-display)',
             fontWeight: '800',
@@ -286,9 +286,9 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 12px auto',
-            border: p2 ? 'none' : '2px dashed rgba(255,255,255,0.15)'
+            border: p2 ? 'none' : '2px dashed var(--border-subtle)'
           }}>
-            {p2 ? p2.username.slice(0, 1).toUpperCase() : <Loader2 size={24} className="spin" style={{ animation: 'spin 2s linear infinite' }} color="#64748b" />}
+            {p2 ? p2.username.slice(0, 1).toUpperCase() : <Loader2 size={24} className="spin" style={{ animation: 'spin 2s linear infinite' }} color="var(--text-muted)" />}
           </div>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '6px' }}>
             {p2 ? p2.username : 'Waiting for opponent...'}
@@ -309,11 +309,11 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
       <div style={{ textAlign: 'center' }}>
         <button
           className={`btn ${isReady ? 'btn-secondary' : 'btn-primary'}`}
-          style={{ fontSize: 'clamp(0.95rem, 3.5vw, 1.2rem)', padding: '14px 24px', width: '100%', maxWidth: '460px', minHeight: '48px', whiteSpace: 'normal', lineHeight: 1.3 }}
+          style={{ fontSize: 'clamp(0.95rem, 3.5vw, 1.2rem)', padding: '14px 24px', width: '100%', maxWidth: '460px', minHeight: '48px', whiteSpace: 'normal', lineHeight: 1.3, boxShadow: 'none' }}
           onClick={handleReadyToggle}
           disabled={!p2}
         >
-          <ShieldCheck size={20} color={isReady ? "#00e676" : "#03101d"} style={{ flexShrink: 0 }} />
+          <ShieldCheck size={20} color={isReady ? "#00e676" : "currentColor"} style={{ flexShrink: 0 }} />
           <span>{isReady ? 'READY (WAITING FOR OPPONENT)' : 'I AM READY!'}</span>
         </button>
         {!p2 && (

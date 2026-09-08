@@ -3,13 +3,15 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Menu, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Menu, X, AlertTriangle, Loader2, Sun, Moon } from 'lucide-react';
 import { getRankMeta } from '../utils/rankUtils';
 
 export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenFriends, onOpenProfile, onOpenTournaments }) {
   const { user, logout } = useAuth();
   const { isMuted, toggleMute, playClick } = useSound();
   const { leaveRoom, currentRoomCode, gameState } = useSocket();
+  const { theme, toggleTheme, isDark } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -25,6 +27,11 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
   const handleMute = () => {
     playClick();
     toggleMute();
+  };
+
+  const handleToggleTheme = () => {
+    playClick();
+    toggleTheme();
   };
 
   const handleLogoutClick = () => {
@@ -99,14 +106,15 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: 'clamp(10px, 2.5vw, 16px) clamp(14px, 3.5vw, 28px)',
-      background: 'rgba(12, 16, 26, 0.88)',
+      background: 'var(--nav-bg)',
       backdropFilter: 'blur(16px)',
       WebkitBackdropFilter: 'blur(16px)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+      borderBottom: '1px solid var(--border-subtle)',
       position: 'sticky',
       top: 0,
       zIndex: 100,
-      width: '100%'
+      width: '100%',
+      transition: 'background 0.25s ease, border-color 0.25s ease'
     }}>
       {/* Brand Logo */}
       <div 
@@ -127,19 +135,10 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fff', fontFamily: 'var(--font-display)' }}>⚔️</span>
         </div>
         <div>
-          <div className="nav-brand-title" style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: '900',
-            fontSize: '1.35rem',
-            letterSpacing: '1px',
-            background: 'linear-gradient(90deg, #00f2fe, #fff, #8e2de2)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            whiteSpace: 'nowrap'
-          }}>
+          <div className="nav-brand-title">
             LETTER DUEL
           </div>
-          <div className="nav-brand-subtitle" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+          <div className="nav-brand-subtitle">
             1v1 Real-Time Arena
           </div>
         </div>
@@ -154,7 +153,17 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           title={isMuted ? "Unmute Sound" : "Mute Sound"}
           aria-label="Sound Toggle"
         >
-          {isMuted ? <VolumeX size={18} color="#94a3b8" /> : <Volume2 size={18} color="#00f2fe" />}
+          {isMuted ? <VolumeX size={18} color="#94a3b8" /> : <Volume2 size={18} color="var(--neon-cyan)" />}
+        </button>
+
+        {/* Theme Toggle */}
+        <button 
+          className="btn btn-secondary btn-icon" 
+          onClick={handleToggleTheme}
+          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          aria-label="Theme Toggle"
+        >
+          {isDark ? <Sun size={18} color="#ffb300" /> : <Moon size={18} color="#7c3aed" />}
         </button>
 
         {/* How to Play */}
@@ -304,7 +313,18 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           aria-label="Sound Toggle"
           style={{ width: '42px', height: '42px', minWidth: '42px', minHeight: '42px' }}
         >
-          {isMuted ? <VolumeX size={18} color="#94a3b8" /> : <Volume2 size={18} color="#00f2fe" />}
+          {isMuted ? <VolumeX size={18} color="#94a3b8" /> : <Volume2 size={18} color="var(--neon-cyan)" />}
+        </button>
+
+        {/* Theme Toggle */}
+        <button 
+          className="btn btn-secondary btn-icon" 
+          onClick={handleToggleTheme}
+          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          aria-label="Theme Toggle"
+          style={{ width: '42px', height: '42px', minWidth: '42px', minHeight: '42px' }}
+        >
+          {isDark ? <Sun size={18} color="#ffb300" /> : <Moon size={18} color="#7c3aed" />}
         </button>
 
         {/* Hamburger Menu Button */}
@@ -315,7 +335,7 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           aria-label="Toggle Navigation Menu"
           style={{ width: '42px', height: '42px', minWidth: '42px', minHeight: '42px' }}
         >
-          {mobileMenuOpen ? <X size={22} color="#00f2fe" /> : <Menu size={22} />}
+          {mobileMenuOpen ? <X size={22} color="var(--neon-cyan)" /> : <Menu size={22} />}
         </button>
       </div>
 
@@ -392,8 +412,14 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
             </div>
           )}
 
+          {/* Mobile Theme Switcher Item */}
+          <button className="mobile-nav-item" onClick={handleToggleTheme}>
+            {isDark ? <Sun size={20} color="#ffb300" /> : <Moon size={20} color="#7c3aed" />}
+            <span>{isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}</span>
+          </button>
+
           <button className="mobile-nav-item" onClick={() => handleNavAction(onOpenTutorial)}>
-            <BookOpen size={20} color="#00f2fe" />
+            <BookOpen size={20} color="var(--neon-cyan)" />
             <span>How to Play & Rules</span>
           </button>
 

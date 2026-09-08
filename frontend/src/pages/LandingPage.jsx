@@ -141,11 +141,11 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: 'clamp(20px, 4vw, 40px) clamp(12px, 3vw, 20px)' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: 'clamp(20px, 4vw, 20px) clamp(12px, 3vw, 20px)' }}>
       {/* Hero Section */}
       <div style={{
         textAlign: 'center',
-        padding: 'clamp(24px, 5vw, 50px) clamp(8px, 2vw, 16px)',
+        padding: 'clamp(24px, 5vw, 20px) clamp(8px, 2vw, 16px)',
         position: 'relative'
       }}>
         {/* Glow ambient background element */}
@@ -246,8 +246,8 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
         {/* Primary Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', marginBottom: '20px' }}>
-          <button 
-            className="btn btn-primary glow-cyan btn-3d" 
+          <button
+            className="btn btn-primary btn-3d"
             style={{
               fontSize: 'clamp(1rem, 3vw, 1.25rem)',
               padding: 'clamp(12px, 2.5vw, 16px) clamp(16px, 4vw, 36px)',
@@ -262,7 +262,8 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
               whiteSpace: 'normal',
               textAlign: 'center',
               lineHeight: 1.3,
-              width: 'min(460px, 100%)'
+              width: 'min(460px, 100%)',
+              boxShadow: 'none'
             }}
             onClick={() => {
               playClick();
@@ -273,12 +274,12 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
               }
             }}
           >
-            <Zap size={22} color="#03101d" fill="#03101d" style={{ flexShrink: 0 }} />
+            <Zap size={22} color="currentColor" fill="currentColor" style={{ flexShrink: 0 }} />
             <span>Global Multiplayer (Quick Match)</span>
           </button>
 
-          <button 
-            className="btn btn-3d" 
+          <button
+            className="btn btn-3d"
             style={{
               fontSize: 'clamp(0.95rem, 2.8vw, 1.15rem)',
               padding: 'clamp(12px, 2.5vw, 15px) clamp(16px, 4vw, 32px)',
@@ -296,7 +297,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
               width: 'min(460px, 100%)',
               background: 'linear-gradient(135deg, #ffb300, #ff8f00)',
               color: '#0a0d14',
-              boxShadow: '0 0 25px rgba(255, 179, 0, 0.35)',
+              boxShadow: 'none',
               border: 'none'
             }}
             onClick={() => {
@@ -308,7 +309,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
               }
             }}
           >
-            <Trophy size={22} color="#0a0d14" fill="#0a0d14" style={{ flexShrink: 0 }} />
+            <Trophy size={22} color="currentColor" fill="currentColor" style={{ flexShrink: 0 }} />
             <span>🏆 Tournament Mode (8-Player Knockout)</span>
           </button>
         </div>
@@ -321,7 +322,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
           <button
             className="btn btn-secondary"
-            style={{ fontSize: '0.92rem', padding: '10px 18px' }}
+            style={{ fontSize: '0.92rem', padding: '10px 18px', boxShadow: 'none' }}
             onClick={handleOpenCreateModal}
             disabled={creating}
           >
@@ -331,10 +332,10 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
           <button
             className="btn btn-secondary"
-            style={{ fontSize: '0.92rem', padding: '10px 18px' }}
+            style={{ fontSize: '0.92rem', padding: '10px 18px', boxShadow: 'none' }}
             onClick={() => { playClick(); setShowJoinModal(true); }}
           >
-            <ArrowRightCircle size={18} color="#00f2fe" />
+            <ArrowRightCircle size={18} color="var(--neon-cyan)" />
             <span>Join with Code</span>
           </button>
 
@@ -361,13 +362,13 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
             width: '46px',
             height: '46px',
             borderRadius: '12px',
-            background: 'rgba(0, 242, 254, 0.12)',
+            background: 'var(--neon-cyan-glow)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: '16px'
           }}>
-            <Swords size={24} color="#00f2fe" />
+            <Swords size={24} color="var(--neon-cyan)" />
           </div>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', marginBottom: '8px' }}>
             Strict Turn Alternation
@@ -382,13 +383,13 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
             width: '46px',
             height: '46px',
             borderRadius: '12px',
-            background: 'rgba(142, 45, 226, 0.12)',
+            background: 'var(--neon-violet-glow)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: '16px'
           }}>
-            <Shield size={24} color="#8e2de2" />
+            <Shield size={24} color="var(--neon-violet)" />
           </div>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', marginBottom: '8px' }}>
             Zero-Knowledge Secrecy
@@ -403,13 +404,13 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
             width: '46px',
             height: '46px',
             borderRadius: '12px',
-            background: 'rgba(255, 179, 0, 0.12)',
+            background: 'rgba(217, 119, 6, 0.12)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: '16px'
           }}>
-            <Zap size={24} color="#ffb300" />
+            <Zap size={24} color="var(--neon-amber)" />
           </div>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', marginBottom: '8px' }}>
             Real-Time Multiplayer
@@ -451,7 +452,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
             <form onSubmit={handleJoinRoom}>
               <div style={{ marginBottom: '16px' }}>
-                <input 
+                <input
                   type="text"
                   maxLength={6}
                   placeholder="e.g. DUEL42"
@@ -475,7 +476,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
                     background: 'var(--bg-surface)',
                     color: 'var(--neon-cyan)',
                     outline: 'none',
-                    boxShadow: '0 0 15px rgba(0, 242, 254, 0.2)'
+                    boxShadow: 'none'
                   }}
                 />
               </div>
@@ -495,18 +496,18 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
               )}
 
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  style={{ flex: 1 }}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1, boxShadow: 'none' }}
                   onClick={() => setShowJoinModal(false)}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary"
-                  style={{ flex: 2 }}
+                  style={{ flex: 2, boxShadow: 'none' }}
                   disabled={joining || joinCode.trim().length !== 6}
                 >
                   {joining ? 'Joining...' : 'Enter Duel'}
@@ -532,8 +533,8 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
                     Create Private Duel Room
                   </h2>
                 </div>
-                <button 
-                  className="btn btn-secondary btn-icon" 
+                <button
+                  className="btn btn-secondary btn-icon"
                   style={{ width: '32px', height: '32px' }}
                   onClick={() => { playClick(); setShowCreateModal(false); }}
                 >
@@ -546,7 +547,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: 'rgba(255, 255, 255, 0.04)',
+                background: 'var(--bg-surface-elevated)',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
                 padding: '8px 14px',
@@ -612,7 +613,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
                       key={tier.fee}
                       onClick={() => {
                         if (isLocked) {
-                          playMiss();
+                           playMiss();
                           setCreateError(`Requires ${tier.reqLabel} to enter.`);
                         } else if (!isAffordable) {
                           playMiss();
@@ -629,9 +630,9 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
                         justifyContent: 'space-between',
                         padding: '12px 14px',
                         borderRadius: 'var(--radius-md)',
-                        background: isSelected ? tier.bg : 'rgba(255, 255, 255, 0.03)',
-                        border: isSelected ? `2px solid ${tier.color}` : '1px solid rgba(255, 255, 255, 0.08)',
-                        boxShadow: isSelected ? `0 0 16px ${tier.color}40` : 'none',
+                        background: isSelected ? tier.bg : 'var(--bg-surface-elevated)',
+                        border: isSelected ? `2px solid ${tier.color}` : '1px solid var(--border-subtle)',
+                        boxShadow: 'none',
                         cursor: (isLocked || !isAffordable) ? 'not-allowed' : 'pointer',
                         opacity: isLocked ? 0.55 : (!isAffordable ? 0.7 : 1),
                         transition: 'all 0.2s ease'
@@ -640,7 +641,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
                         <span style={{ fontSize: '1.5rem' }}>{tier.icon}</span>
                         <div>
-                          <div style={{ fontWeight: '800', fontSize: '0.95rem', color: isSelected ? '#fff' : 'var(--text-primary)' }}>
+                          <div style={{ fontWeight: '800', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
                             {tier.name}
                           </div>
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '8px', marginTop: '2px' }}>
@@ -703,7 +704,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
               <button
                 className="btn btn-primary btn-3d"
-                style={{ width: '100%', padding: '14px', fontSize: '1rem', fontWeight: '800' }}
+                style={{ width: '100%', padding: '14px', fontSize: '1rem', fontWeight: '800', boxShadow: 'none' }}
                 onClick={() => handleCreateRoom(createFee)}
                 disabled={creating || !isRankEligible(userRank, getTierForFee(createFee).minRank) || userCoins < createFee}
               >

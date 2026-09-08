@@ -270,19 +270,21 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChall
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr 1fr',
-          background: 'rgba(0, 0, 0, 0.25)',
+          background: 'var(--bg-surface-elevated)',
           padding: '4px',
           borderRadius: 'var(--radius-md)',
-          marginBottom: '16px'
+          marginBottom: '16px',
+          border: '1px solid var(--border-subtle)'
         }}>
           <button
             className="btn"
             style={{
-              background: activeTab === 'list' ? 'var(--bg-surface-elevated)' : 'transparent',
+              background: activeTab === 'list' ? 'var(--bg-card)' : 'transparent',
               color: activeTab === 'list' ? 'var(--neon-cyan)' : 'var(--text-muted)',
               padding: '8px',
               fontSize: '0.85rem',
-              fontWeight: activeTab === 'list' ? '700' : '500'
+              fontWeight: activeTab === 'list' ? '700' : '500',
+              boxShadow: 'none'
             }}
             onClick={() => { playClick(); setActiveTab('list'); }}
           >
@@ -291,11 +293,12 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChall
           <button
             className="btn"
             style={{
-              background: activeTab === 'requests' ? 'var(--bg-surface-elevated)' : 'transparent',
+              background: activeTab === 'requests' ? 'var(--bg-card)' : 'transparent',
               color: activeTab === 'requests' ? 'var(--neon-cyan)' : 'var(--text-muted)',
               padding: '8px',
               fontSize: '0.85rem',
-              fontWeight: activeTab === 'requests' ? '700' : '500'
+              fontWeight: activeTab === 'requests' ? '700' : '500',
+              boxShadow: 'none'
             }}
             onClick={() => { playClick(); setActiveTab('requests'); }}
           >
@@ -304,11 +307,12 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChall
           <button
             className="btn"
             style={{
-              background: activeTab === 'search' ? 'var(--bg-surface-elevated)' : 'transparent',
+              background: activeTab === 'search' ? 'var(--bg-card)' : 'transparent',
               color: activeTab === 'search' ? 'var(--neon-cyan)' : 'var(--text-muted)',
               padding: '8px',
               fontSize: '0.85rem',
-              fontWeight: activeTab === 'search' ? '700' : '500'
+              fontWeight: activeTab === 'search' ? '700' : '500',
+              boxShadow: 'none'
             }}
             onClick={() => { playClick(); setActiveTab('search'); }}
           >
@@ -490,11 +494,11 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChall
                   placeholder="Enter friend code or username (e.g. #username)..."
                   style={{
                     flex: 1,
-                    background: 'var(--bg-surface)',
-                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--input-border)',
                     borderRadius: 'var(--radius-md)',
                     padding: '10px 14px',
-                    color: '#fff',
+                    color: 'var(--input-text)',
                     outline: 'none',
                     fontSize: '0.92rem'
                   }}

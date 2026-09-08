@@ -260,10 +260,10 @@ export default function ProfileModal({ isOpen, onClose }) {
                 style={{
                   width: '100%',
                   padding: '10px 14px',
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--input-bg)',
+                  border: '1px solid var(--input-border)',
                   borderRadius: 'var(--radius-md)',
-                  color: '#fff',
+                  color: 'var(--input-text)',
                   outline: 'none',
                   minHeight: '44px'
                 }}
