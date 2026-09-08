@@ -12,7 +12,10 @@ router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
     users = (
         db.query(User)
-        .filter(~User.email.ilike("%@letterduel.gg"))
+        .filter(
+            ~User.email.ilike("%@letterduel.gg"),
+            (User.wins > 0) | (User.xp > 0)
+        )
         .order_by(desc(User.xp), desc(User.wins))
         .limit(limit)
         .all()

@@ -16,11 +16,20 @@ def generate_room_code(length: int = 6) -> str:
     chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
     return "".join(random.choice(chars) for _ in range(length))
 
+ARENA_TIERS: Dict[int, dict] = {
+    50: {"min_level": 1, "name": "Novice Duel", "pot": 100},
+    100: {"min_level": 2, "name": "Apprentice Arena", "pot": 200},
+    200: {"min_level": 3, "name": "Warrior Arena", "pot": 400},
+    500: {"min_level": 5, "name": "Master Arena", "pot": 1000},
+    1000: {"min_level": 10, "name": "Champion Duel", "pot": 2000}
+}
+
 class RoomSession:
-    def __init__(self, room_code: str, allow_custom_words: bool = True, is_private: bool = True):
+    def __init__(self, room_code: str, allow_custom_words: bool = True, is_private: bool = True, entry_fee: int = 50):
         self.room_code = room_code
         self.allow_custom_words = allow_custom_words
         self.is_private = is_private
+        self.entry_fee = entry_fee
         self.game: Optional[LetterDuelGame] = None
         
         # Connected WebSockets: player_id -> WebSocket
@@ -46,15 +55,15 @@ class RoomSession:
 class RoomManager:
     def __init__(self):
         self.rooms: Dict[str, RoomSession] = {}
-        # Quickmatch queue: user_id -> {"user_id": user_id, "username": str, "avatar": str, "room_code": room_code, "created_at": datetime, "status": str}
+        # Quickmatch queue: user_id -> {"user_id": user_id, "username": str, "avatar": str, "room_code": room_code, "entry_fee": int, "created_at": datetime, "status": str}
         self.quickmatch_queue: Dict[int, dict] = {}
         self._lock = asyncio.Lock()
 
-    def create_room(self, allow_custom_words: bool = True, is_private: bool = True) -> str:
+    def create_room(self, allow_custom_words: bool = True, is_private: bool = True, entry_fee: int = 50) -> str:
         code = generate_room_code()
         while code in self.rooms:
             code = generate_room_code()
-        self.rooms[code] = RoomSession(room_code=code, allow_custom_words=allow_custom_words, is_private=is_private)
+        self.rooms[code] = RoomSession(room_code=code, allow_custom_words=allow_custom_words, is_private=is_private, entry_fee=entry_fee)
         return code
 
     def get_room(self, room_code: str) -> Optional[RoomSession]:
@@ -71,27 +80,29 @@ class RoomManager:
                     task.cancel()
             del self.rooms[code]
 
-    async def add_to_quickmatch_queue(self, user_id: int, username: str, avatar: str, room_code: str):
-        """Register a user who is actively waiting for an online opponent."""
+    async def add_to_quickmatch_queue(self, user_id: int, username: str, avatar: str, room_code: str, entry_fee: int = 50):
+        """Register a user who is actively waiting for an online opponent at a specific entry stake."""
         async with self._lock:
             self.quickmatch_queue[user_id] = {
                 "user_id": user_id,
                 "username": username,
                 "avatar": avatar,
                 "room_code": room_code,
+                "entry_fee": entry_fee,
                 "created_at": datetime.datetime.now(datetime.timezone.utc),
                 "status": "LOOKING_FOR_MATCH"
             }
-            logger.info(f"[Matchmaking] Player {username} (id: {user_id}) joined queue in room {room_code}. Queue size: {len(self.quickmatch_queue)}")
+            logger.info(f"[Matchmaking] Player {username} (id: {user_id}) joined queue for {entry_fee} coins in room {room_code}. Queue size: {len(self.quickmatch_queue)}")
 
-    async def pop_quickmatch_opponent(self, excluding_user_id: int) -> Optional[dict]:
+    async def pop_quickmatch_opponent(self, excluding_user_id: int, entry_fee: int = 50) -> Optional[dict]:
         """
-        Atomically find and pop the oldest waiting REAL online player.
+        Atomically find and pop the oldest waiting REAL online player in the same entry stake tier.
         Strict requirements:
         1. Must NOT be the current user.
-        2. Must be actively connected / verified online in presence_manager.
-        3. Must NOT already be in an active playing duel.
-        4. Room must still exist in memory and be open.
+        2. Must match the requested entry_fee tier.
+        3. Must be actively connected / verified online in presence_manager.
+        4. Must NOT already be in an active playing duel.
+        5. Room must still exist in memory and be open.
         """
         from app.game.presence import presence_manager
 
@@ -110,9 +121,12 @@ class RoomManager:
                 logger.info(f"[Matchmaking] Purged stale/offline queue entry for user {uid}")
                 self.quickmatch_queue.pop(uid, None)
 
-            # Find valid candidate
+            # Find valid candidate matching the requested entry_fee
             for uid, item in list(self.quickmatch_queue.items()):
                 if uid == excluding_user_id:
+                    continue
+
+                if item.get("entry_fee", 50) != entry_fee:
                     continue
 
                 # Ensure candidate is not currently in an active PLAYING match
@@ -124,7 +138,7 @@ class RoomManager:
 
                 # Valid human candidate found! Atomically pop and return
                 popped = self.quickmatch_queue.pop(uid)
-                logger.info(f"[Matchmaking] Matched candidate {popped['username']} (id: {uid}) with challenger {excluding_user_id}")
+                logger.info(f"[Matchmaking] Matched candidate {popped['username']} (id: {uid}) at {entry_fee} coins with challenger {excluding_user_id}")
                 return popped
 
             return None

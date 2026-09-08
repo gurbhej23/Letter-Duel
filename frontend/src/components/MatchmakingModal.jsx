@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
-import { X, Swords, CheckCircle2, Zap, ShieldCheck, Clock, RefreshCw } from 'lucide-react';
+import { X, Swords, CheckCircle2, Zap, ShieldCheck, Lock, AlertCircle, ArrowLeft } from 'lucide-react';
+import { ARENA_TIERS, getTierForFee } from '../utils/arenaTiers';
 
 export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const { user, token } = useAuth();
@@ -10,68 +11,43 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const { playClick, playMiss, playVictory } = sound;
   const { gameState, connectToRoom, disconnect, onlineCount } = useSocket();
 
-  const [seconds, setSeconds] = useState(0);
+  const [selectedFee, setSelectedFee] = useState(50);
+  const [searching, setSearching] = useState(false);
+  const [errorNotice, setErrorNotice] = useState('');
   const [statusText, setStatusText] = useState('Initializing global neural radar...');
   const [matched, setMatched] = useState(false);
   const [matchedOpponent, setMatchedOpponent] = useState(null);
   const [countdown, setCountdown] = useState(3);
-  const [searchTimedOut, setSearchTimedOut] = useState(false);
-  const [retryKey, setRetryKey] = useState(0);
 
   const activeRoomCodeRef = useRef(null);
   const matchedRef = useRef(false);
   const countdownIntervalRef = useRef(null);
+  const statusIntervalRef = useRef(null);
 
-  // Reset all state when modal opens/closes or retries
+  // Reset state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
-      setSeconds(0);
+      setSearching(false);
       setMatched(false);
       setMatchedOpponent(null);
       setCountdown(3);
-      setSearchTimedOut(false);
-      setRetryKey(0);
       matchedRef.current = false;
       activeRoomCodeRef.current = null;
+      setErrorNotice('');
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
         countdownIntervalRef.current = null;
+      }
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current);
+        statusIntervalRef.current = null;
       }
       setStatusText('Initializing global neural radar...');
       return;
     }
 
     matchedRef.current = false;
-    setSearchTimedOut(false);
-    setSeconds(0);
-
-    const interval = setInterval(() => {
-      setSeconds((prev) => {
-        if (prev >= 29) {
-          clearInterval(interval);
-          setSearchTimedOut(true);
-          return 30;
-        }
-        return prev + 1;
-      });
-    }, 1000);
-
-    return () => {
-      clearInterval(interval);
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
-    };
-  }, [isOpen, retryKey]);
-
-  // Dynamic status text updates across 30s search window
-  useEffect(() => {
-    if (!isOpen || matched || searchTimedOut) return;
-    if (seconds === 1) setStatusText('Scanning global pool for an available duelist...');
-    if (seconds === 5) setStatusText('Searching for an online opponent...');
-    if (seconds === 12) setStatusText('Checking available rivals across servers...');
-    if (seconds >= 20) setStatusText(`Waiting for an online player to queue (${Math.max(0, 30 - seconds)}s left)...`);
-  }, [seconds, isOpen, matched, searchTimedOut]);
+  }, [isOpen]);
 
   // Handle successful match confirmation & countdown
   const triggerMatchConfirmed = (roomCode, opponentData = null) => {
@@ -109,85 +85,85 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     }, 800);
   };
 
-  // Start matchmaking request when modal opens or retries
-  useEffect(() => {
-    if (!isOpen || !token) return;
+  // Start matchmaking for selected tier
+  const handleStartSearch = async () => {
+    if (!token) return;
+    const tier = getTierForFee(selectedFee);
+    const userCoins = user?.coins ?? 500;
+    const userLevel = user?.level || 1;
 
-    let isMounted = true;
-
-    const startMatchmaking = async () => {
-      try {
-        const res = await fetch('/api/rooms/quickmatch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        });
-        if (!res.ok) throw new Error('Matchmaking failed');
-        const data = await res.json();
-
-        if (isMounted) {
-          activeRoomCodeRef.current = data.room_code;
-          connectToRoom(data.room_code);
-
-          if (data.matched) {
-            // Found real player immediately!
-            setTimeout(() => {
-              if (isMounted) {
-                triggerMatchConfirmed(data.room_code, data.opponent);
-              }
-            }, 1200);
-          }
-        }
-      } catch (err) {
-        console.error('Matchmaking error:', err);
-        playMiss();
-        if (isMounted) onClose();
-      }
-    };
-
-    startMatchmaking();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, token, retryKey]);
-
-  // Clean up backend quickmatch queue if search reaches 30s timeout
-  useEffect(() => {
-    if (searchTimedOut && token) {
-      fetch('/api/rooms/quickmatch/cancel', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      }).catch(() => {});
-      disconnect();
+    if (userCoins < tier.fee) {
+      setErrorNotice(`Insufficient coins (${userCoins} 🪙). Need ${tier.fee} 🪙.`);
+      playMiss();
+      return;
     }
-  }, [searchTimedOut, token]);
+    if (userLevel < tier.minLevel) {
+      setErrorNotice(`Requires Level ${tier.minLevel} to unlock. (Current: Lv. ${userLevel})`);
+      playMiss();
+      return;
+    }
+
+    playClick();
+    setErrorNotice('');
+    setSearching(true);
+    setStatusText(`Scanning pool for ${tier.name} rival (${tier.fee} 🪙)...`);
+
+    const messages = [
+      `Scanning global pool for an available duelist in ${tier.name}...`,
+      `Searching for rivals with ${tier.fee} coins stake...`,
+      `Matching with equal-level online challengers...`,
+      `Waiting for an opponent in the ${tier.name}...`
+    ];
+    let idx = 0;
+    statusIntervalRef.current = setInterval(() => {
+      idx = (idx + 1) % messages.length;
+      setStatusText(messages[idx]);
+    }, 3500);
+
+    try {
+      const res = await fetch('/api/rooms/quickmatch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ entry_fee: tier.fee })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || 'Matchmaking failed');
+      }
+      const data = await res.json();
+
+      activeRoomCodeRef.current = data.room_code;
+      connectToRoom(data.room_code);
+
+      if (data.matched) {
+        setTimeout(() => {
+          triggerMatchConfirmed(data.room_code, data.opponent);
+        }, 1200);
+      }
+    } catch (err) {
+      console.error('Matchmaking error:', err);
+      playMiss();
+      setErrorNotice(err.message || 'Matchmaking request failed');
+      setSearching(false);
+    }
+  };
 
   // Detect when second player joins the room via WebSocket in real-time
   useEffect(() => {
-    if (isOpen && gameState?.player1 && gameState?.player2 && !matchedRef.current) {
+    if (isOpen && searching && gameState?.player1 && gameState?.player2 && !matchedRef.current) {
       const opp = gameState.player1.id === user?.id ? gameState.player2 : gameState.player1;
       triggerMatchConfirmed(gameState.room_code, opp);
     }
-  }, [isOpen, gameState?.player1, gameState?.player2, user?.id]);
-
-  const handleRetry = () => {
-    playClick();
-    setSearchTimedOut(false);
-    setSeconds(0);
-    matchedRef.current = false;
-    setStatusText('Initializing global neural radar...');
-    setRetryKey((k) => k + 1);
-  };
+  }, [isOpen, searching, gameState?.player1, gameState?.player2, user?.id]);
 
   const handleCancel = async () => {
     playClick();
-    matchedRef.current = true;
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-    }
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+
     try {
       if (token) {
         await fetch('/api/rooms/quickmatch/cancel', {
@@ -199,62 +175,286 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
       // ignore
     }
     disconnect();
-    onClose();
+    setSearching(false);
+    setMatched(false);
   };
 
   if (!isOpen) return null;
 
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
   const oppName = matchedOpponent?.username || 'Challenger';
   const myName = user?.username || 'Player 1';
+  const currentTier = getTierForFee(selectedFee);
+  const userCoins = user?.coins ?? 500;
+  const userLevel = user?.level || 1;
 
   return (
-    <div className="modal-overlay" style={{ backdropFilter: 'blur(16px)', zIndex: 1100 }}>
+    <div className="modal-overlay" style={{ backdropFilter: 'blur(16px)', zIndex: 1100 }} onClick={searching || matched ? undefined : onClose}>
       <div 
         className="modal-content card-3d-tilt" 
         style={{ 
-          maxWidth: '520px', 
+          maxWidth: searching || matched ? '520px' : '560px', 
           textAlign: 'center',
-          padding: 'clamp(24px, 5vw, 36px) clamp(16px, 4vw, 28px)',
+          padding: 'clamp(20px, 4vw, 32px) clamp(16px, 3.5vw, 24px)',
           border: '1px solid var(--border-glow)',
           boxShadow: '0 0 50px rgba(0, 242, 254, 0.3)',
           position: 'relative',
           overflow: 'hidden'
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {!matched && !searchTimedOut ? (
+        {/* ======================================================== */}
+        {/* 1. ARENA TIER SELECTION SCREEN (Choose Stake & Unlock by Level) */}
+        {/* ======================================================== */}
+        {!searching && !matched ? (
+          <div>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Swords size={22} color="var(--neon-cyan)" />
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', margin: 0 }}>
+                  CHOOSE DUEL ARENA
+                </h2>
+              </div>
+              <button 
+                className="btn btn-secondary btn-icon" 
+                style={{ width: '32px', height: '32px' }}
+                onClick={() => { playClick(); onClose(); }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* User status info pill */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              padding: '8px 14px',
+              marginBottom: '16px',
+              fontSize: '0.85rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
+                  color: '#fff',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '0.75rem'
+                }}>
+                  Lv. {userLevel}
+                </span>
+                <span style={{ color: 'var(--text-secondary)' }}>{user?.username}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#ffc107' }}>
+                <span>🪙</span>
+                <span>{userCoins} Coins Balance</span>
+              </div>
+            </div>
+
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', marginBottom: '16px', textAlign: 'left' }}>
+              Select your match stake tier. Higher stake arenas unlock as you level up!
+            </p>
+
+            {/* Error notice */}
+            {errorNotice && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255, 42, 109, 0.12)',
+                border: '1px solid rgba(255, 42, 109, 0.4)',
+                color: '#ff6b8b',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.82rem',
+                marginBottom: '14px'
+              }}>
+                <AlertCircle size={16} />
+                <span>{errorNotice}</span>
+              </div>
+            )}
+
+            {/* Tiers List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px', maxHeight: '320px', overflowY: 'auto', paddingRight: '4px' }}>
+              {ARENA_TIERS.map((tier) => {
+                const isLocked = userLevel < tier.minLevel;
+                const isAffordable = userCoins >= tier.fee;
+                const isSelected = selectedFee === tier.fee;
+
+                return (
+                  <div
+                    key={tier.fee}
+                    onClick={() => {
+                      if (isLocked) {
+                        playMiss();
+                        setErrorNotice(`Requires Level ${tier.minLevel} to unlock. Win duels to level up!`);
+                      } else if (!isAffordable) {
+                        playMiss();
+                        setErrorNotice(`Insufficient coins. You have ${userCoins} 🪙, need ${tier.fee} 🪙.`);
+                      } else {
+                        playClick();
+                        setSelectedFee(tier.fee);
+                        setErrorNotice('');
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      background: isSelected ? tier.bg : 'rgba(255, 255, 255, 0.03)',
+                      border: isSelected ? `2px solid ${tier.color}` : '1px solid rgba(255, 255, 255, 0.08)',
+                      boxShadow: isSelected ? `0 0 16px ${tier.color}40` : 'none',
+                      cursor: (isLocked || !isAffordable) ? 'not-allowed' : 'pointer',
+                      opacity: isLocked ? 0.55 : (!isAffordable ? 0.7 : 1),
+                      transition: 'all 0.2s ease',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+                      <span style={{ fontSize: '1.6rem' }}>{tier.icon}</span>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '0.98rem', color: isSelected ? '#fff' : 'var(--text-primary)' }}>
+                          {tier.name}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                          <span style={{ color: '#ffc107', fontWeight: '700' }}>🪙 {tier.fee} Stake</span>
+                          <span>•</span>
+                          <span style={{ color: '#00e676', fontWeight: '700' }}>🏆 {tier.pot} Pot</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      {isLocked ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: 'rgba(255, 42, 109, 0.15)',
+                          border: '1px solid rgba(255, 42, 109, 0.4)',
+                          color: '#ff6b8b',
+                          fontSize: '0.75rem',
+                          fontWeight: '800',
+                          padding: '3px 8px',
+                          borderRadius: '10px'
+                        }}>
+                          <Lock size={12} /> Lv. {tier.minLevel}
+                        </span>
+                      ) : !isAffordable ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: 'rgba(255, 179, 0, 0.15)',
+                          border: '1px solid rgba(255, 179, 0, 0.4)',
+                          color: '#ffb300',
+                          fontSize: '0.75rem',
+                          fontWeight: '800',
+                          padding: '3px 8px',
+                          borderRadius: '10px'
+                        }}>
+                          Low Coins
+                        </span>
+                      ) : isSelected ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: 'rgba(0, 242, 254, 0.18)',
+                          border: '1px solid var(--neon-cyan)',
+                          color: 'var(--neon-cyan)',
+                          fontSize: '0.75rem',
+                          fontWeight: '900',
+                          padding: '3px 10px',
+                          borderRadius: '10px'
+                        }}>
+                          SELECTED ✓
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '0.75rem',
+                          color: 'var(--text-muted)',
+                          padding: '3px 8px'
+                        }}>
+                          Tap to Select
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Action button to launch queue */}
+            <button
+              className="btn btn-primary glow-cyan btn-3d"
+              style={{
+                width: '100%',
+                padding: '14px',
+                fontSize: '1.05rem',
+                fontWeight: '800',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+              onClick={handleStartSearch}
+              disabled={userLevel < currentTier.minLevel || userCoins < currentTier.fee}
+            >
+              <Zap size={18} />
+              <span>Enter {currentTier.name} (Find Rival)</span>
+            </button>
+          </div>
+        ) : !matched ? (
           /* ======================================================== */
-          /* 1. RADAR SCANNING STATE (Matches Sci-Fi Sonar Reference) */
+          /* 2. RADAR SCANNING STATE (Matches Sci-Fi Sonar Reference) */
           /* ======================================================== */
           <>
-            {/* Live Real-Time Online Count Indicator */}
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(0, 230, 118, 0.08)',
-              border: '1px solid rgba(0, 230, 118, 0.28)',
-              padding: '5px 14px',
-              borderRadius: '20px',
-              fontSize: '0.8rem',
-              fontWeight: '800',
-              color: '#00e676',
-              marginBottom: '16px',
-              boxShadow: '0 0 12px rgba(0, 230, 118, 0.15)'
-            }}>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: '#00e676',
-                boxShadow: '0 0 8px #00e676'
-              }} />
-              <span>ONLINE: {onlineCount}</span>
+            {/* Arena Tier & Live Online Count Indicator */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: currentTier.bg,
+                border: `1px solid ${currentTier.border}`,
+                padding: '4px 12px',
+                borderRadius: '16px',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                color: currentTier.color
+              }}>
+                <span>{currentTier.icon}</span>
+                <span>{currentTier.name} • 🪙 {currentTier.fee} Stake</span>
+              </div>
+
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(0, 230, 118, 0.08)',
+                border: '1px solid rgba(0, 230, 118, 0.28)',
+                padding: '4px 12px',
+                borderRadius: '16px',
+                fontSize: '0.8rem',
+                fontWeight: '800',
+                color: '#00e676'
+              }}>
+                <span style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: '#00e676',
+                  boxShadow: '0 0 6px #00e676'
+                }} />
+                <span>ONLINE: {onlineCount}</span>
+              </div>
             </div>
 
             <div style={{
@@ -410,33 +610,9 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
             </h2>
 
             {/* Status text */}
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '16px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '24px' }}>
               {statusText}
             </p>
-
-            {/* Search Duration with 30s Limit */}
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(0, 0, 0, 0.35)',
-              padding: '6px 18px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              marginBottom: '22px'
-            }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Time Left:
-              </span>
-              <span style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '1.1rem',
-                fontWeight: '800',
-                color: (30 - seconds) <= 10 ? '#ff2a6d' : 'var(--neon-cyan)'
-              }}>
-                {Math.max(0, 30 - seconds)}s <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '400' }}>({formatTime(seconds)}/0:30)</span>
-              </span>
-            </div>
 
             {/* Cancel Button */}
             <div>
@@ -453,77 +629,6 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               </button>
             </div>
           </>
-        ) : searchTimedOut ? (
-          /* ======================================================== */
-          /* 3. 30s SEARCH TIMED OUT STATE                            */
-          /* ======================================================== */
-          <div style={{ animation: 'fadeScaleIn 0.35s ease-out', padding: '12px 6px' }}>
-            <div className="badge badge-amber" style={{
-              marginBottom: '16px',
-              fontSize: '0.82rem',
-              padding: '6px 16px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(255, 179, 0, 0.12)',
-              border: '1px solid rgba(255, 179, 0, 0.3)',
-              color: '#ffb300'
-            }}>
-              <Clock size={15} /> SEARCH TIMED OUT (30s)
-            </div>
-
-            <h2 style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'clamp(1.3rem, 4vw, 1.65rem)',
-              fontWeight: '900',
-              marginBottom: '10px',
-              letterSpacing: '0.5px'
-            }}>
-              No Rivals Found
-            </h2>
-
-            <p style={{
-              color: 'var(--text-secondary)',
-              fontSize: '0.92rem',
-              lineHeight: 1.5,
-              maxWidth: '380px',
-              margin: '0 auto 24px auto'
-            }}>
-              No online challenger joined the queue during the 30-second window. You can restart search or challenge a friend.
-            </p>
-
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                className="btn btn-primary btn-3d"
-                onClick={handleRetry}
-                style={{
-                  padding: '12px 28px',
-                  fontSize: '0.95rem',
-                  fontWeight: '700',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <RefreshCw size={16} /> Retry Search (30s)
-              </button>
-
-              <button
-                className="btn btn-secondary btn-3d"
-                onClick={handleCancel}
-                style={{
-                  padding: '12px 28px',
-                  fontSize: '0.95rem',
-                  fontWeight: '700',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <X size={16} /> Close
-              </button>
-            </div>
-          </div>
         ) : (
           /* ======================================================== */
           /* 2. MATCH FOUND / VS SHOWCASE (Real-World AAA Experience) */
@@ -628,6 +733,24 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                   ONLINE
                 </span>
               </div>
+            </div>
+
+            {/* Match Stake / Prize Pot Callout */}
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.2), rgba(255, 179, 0, 0.05))',
+              border: '1px solid rgba(255, 179, 0, 0.4)',
+              borderRadius: '20px',
+              padding: '6px 16px',
+              color: '#ffc107',
+              fontWeight: '800',
+              fontSize: '0.9rem',
+              margin: '0 auto 12px auto'
+            }}>
+              <span>🪙</span>
+              <span>Match Prize Pot: {currentTier.pot} Coins (Winner takes all!)</span>
             </div>
 
             {/* Countdown Bar */}

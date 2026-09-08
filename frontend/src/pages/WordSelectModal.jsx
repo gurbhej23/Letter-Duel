@@ -34,8 +34,8 @@ export default function WordSelectModal({ isOpen }) {
       playMiss();
       return;
     }
-    if (cleanWord.length < 5 || cleanWord.length > 15) {
-      setError(`Word must be 5 to 15 letters long. (Current: ${cleanWord.length})`);
+    if (cleanWord.length < 3 || cleanWord.length > 20) {
+      setError(`Word must be 3 to 20 letters long. (Current: ${cleanWord.length})`);
       playMiss();
       return;
     }
@@ -116,7 +116,7 @@ export default function WordSelectModal({ isOpen }) {
             <div style={{ position: 'relative', marginBottom: '8px' }}>
               <input
                 type="text"
-                maxLength={15}
+                maxLength={20}
                 value={word}
                 onChange={(e) => {
                   setWord(e.target.value.toUpperCase());
@@ -142,18 +142,18 @@ export default function WordSelectModal({ isOpen }) {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              <span>Min 5 letters</span>
-              <span style={{ color: word.length >= 5 && word.length <= 15 ? 'var(--neon-cyan)' : 'var(--text-muted)', fontWeight: 'bold' }}>
-                {word.length} / 15 letters
+              <span>Min 3 letters</span>
+              <span style={{ color: word.length >= 3 && word.length <= 20 ? 'var(--neon-cyan)' : 'var(--text-muted)', fontWeight: 'bold' }}>
+                {word.length} / 20 letters
               </span>
-              <span>Max 15 letters</span>
+              <span>Max 20 letters</span>
             </div>
 
             <button
               type="submit"
               className="btn btn-primary"
               style={{ width: '100%', fontSize: 'clamp(1rem, 3vw, 1.1rem)', padding: '14px', minHeight: '48px' }}
-              disabled={word.length < 5}
+              disabled={word.length < 3}
             >
               <Lock size={18} /> Lock Secret Word
             </button>

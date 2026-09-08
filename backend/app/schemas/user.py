@@ -24,11 +24,14 @@ class UserResponse(BaseModel):
     username: str
     email: str
     avatar: str
-    xp: int
+    coins: int = 500
+    level: int = 1
+    xp: int = 0
     wins: int
     losses: int
     current_streak: int
     best_streak: int
+    last_daily_bonus: Optional[datetime] = None
     created_at: datetime
     last_seen: datetime
 

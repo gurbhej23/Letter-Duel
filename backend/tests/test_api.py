@@ -82,4 +82,3 @@ def test_leaderboard():
     assert res.status_code == 200
     data = res.json()
     assert isinstance(data, list)
-    assert len(data) > 0

@@ -31,6 +31,9 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         email=clean_email,
         password_hash=hash_password(user_in.password),
         avatar=user_in.avatar or "avatar-1",
+        coins=500,
+        level=1,
+        xp=0,
         last_seen=datetime.datetime.utcnow()
     )
     db.add(user)
@@ -95,3 +98,42 @@ def update_profile(
     db.commit()
     db.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+@router.post("/daily-bonus")
+def claim_daily_bonus(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Claim daily free coins bonus (+200 coins).
+    Allowed once every 24 hours, or immediately if user has less than 50 coins (safety net).
+    """
+    now = datetime.datetime.utcnow()
+    is_bankrupt = (current_user.coins or 0) < 50
+
+    if not is_bankrupt and current_user.last_daily_bonus:
+        diff = now - current_user.last_daily_bonus
+        if diff.total_seconds() < 24 * 3600:
+            remaining_seconds = int(24 * 3600 - diff.total_seconds())
+            hours = remaining_seconds // 3600
+            mins = (remaining_seconds % 3600) // 60
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Daily bonus already claimed! Next refill available in {hours}h {mins}m."
+            )
+
+    bonus_amount = 200
+    current_user.coins = (current_user.coins or 0) + bonus_amount
+    current_user.last_daily_bonus = now
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "success": True,
+        "bonus_amount": bonus_amount,
+        "coins": current_user.coins,
+        "new_coins": current_user.coins,
+        "last_daily_bonus": current_user.last_daily_bonus.isoformat() if current_user.last_daily_bonus else None,
+        "message": "Bankruptcy safety refill! Claimed +200 Free Coins!" if is_bankrupt else f"Claimed +{bonus_amount} Free Coins!",
+        "user": UserResponse.model_validate(current_user)
+    }

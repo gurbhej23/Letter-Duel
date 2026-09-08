@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Swords, PlusCircle, ArrowRightCircle, Trophy, BookOpen, Flame, Zap, Shield, Sparkles, Users } from 'lucide-react';
+import { Swords, PlusCircle, ArrowRightCircle, BookOpen, Trophy, Users, Zap, Shield, Sparkles, X, Lock, AlertCircle } from 'lucide-react';
+import { ARENA_TIERS, getTierForFee } from '../utils/arenaTiers';
 
-export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenMatchmaking, onRoomCreated, onRoomJoined }) {
+export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenMatchmaking, onRoomCreated, onRoomJoined, onOpenTournaments }) {
   const { user, token } = useAuth();
   const { playClick, playHit, playMiss } = useSound();
   const { onlineCount } = useSocket();
 
   const [joinCode, setJoinCode] = useState('');
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createFee, setCreateFee] = useState(50);
+  const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState('');
@@ -39,14 +43,40 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
     }
   }, []);
 
-  const handleCreateRoom = async () => {
+  const handleOpenCreateModal = () => {
+    playClick();
+    if (!user) {
+      onOpenAuth();
+      return;
+    }
+    setCreateError('');
+    setShowCreateModal(true);
+  };
+
+  const handleCreateRoom = async (feeToUse) => {
     playClick();
     if (!user) {
       onOpenAuth();
       return;
     }
 
+    const tier = getTierForFee(feeToUse);
+    const userCoins = user?.coins ?? 500;
+    const userLevel = user?.level || 1;
+
+    if (userCoins < tier.fee) {
+      setCreateError(`Insufficient coins (${userCoins} 🪙). Need ${tier.fee} 🪙.`);
+      playMiss();
+      return;
+    }
+    if (userLevel < tier.minLevel) {
+      setCreateError(`Requires Level ${tier.minLevel} to unlock. (Current: Lv. ${userLevel})`);
+      playMiss();
+      return;
+    }
+
     setCreating(true);
+    setCreateError('');
     try {
       const res = await fetch('/api/rooms', {
         method: 'POST',
@@ -54,16 +84,17 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ allow_custom_words: true })
+        body: JSON.stringify({ allow_custom_words: true, entry_fee: tier.fee })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed to create room');
 
       playHit();
+      setShowCreateModal(false);
       onRoomCreated(data.room_code);
     } catch (e) {
       playMiss();
-      alert(e.message);
+      setCreateError(e.message);
     } finally {
       setCreating(false);
     }
@@ -212,13 +243,13 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           ⚡
         </div>
 
-        {/* Global Multiplayer Primary Button */}
-        <div style={{ marginBottom: '20px' }}>
+        {/* Primary Action Buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', marginBottom: '20px' }}>
           <button 
             className="btn btn-primary glow-cyan btn-3d" 
             style={{
-              fontSize: 'clamp(1rem, 3vw, 1.3rem)',
-              padding: 'clamp(14px, 3vw, 18px) clamp(16px, 4vw, 36px)',
+              fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+              padding: 'clamp(12px, 2.5vw, 16px) clamp(16px, 4vw, 36px)',
               borderRadius: 'var(--radius-lg)',
               display: 'inline-flex',
               alignItems: 'center',
@@ -229,7 +260,8 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
               maxWidth: '100%',
               whiteSpace: 'normal',
               textAlign: 'center',
-              lineHeight: 1.3
+              lineHeight: 1.3,
+              width: 'min(460px, 100%)'
             }}
             onClick={() => {
               playClick();
@@ -240,8 +272,43 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
               }
             }}
           >
-            <Zap size={24} color="#03101d" fill="#03101d" style={{ flexShrink: 0 }} />
-            <span>Global Multiplayer (Find Match Online)</span>
+            <Zap size={22} color="#03101d" fill="#03101d" style={{ flexShrink: 0 }} />
+            <span>Global Multiplayer (Quick Match)</span>
+          </button>
+
+          <button 
+            className="btn btn-3d" 
+            style={{
+              fontSize: 'clamp(0.95rem, 2.8vw, 1.15rem)',
+              padding: 'clamp(12px, 2.5vw, 15px) clamp(16px, 4vw, 32px)',
+              borderRadius: 'var(--radius-lg)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              fontWeight: '800',
+              letterSpacing: '0.5px',
+              maxWidth: '100%',
+              whiteSpace: 'normal',
+              textAlign: 'center',
+              lineHeight: 1.3,
+              width: 'min(460px, 100%)',
+              background: 'linear-gradient(135deg, #ffb300, #ff8f00)',
+              color: '#0a0d14',
+              boxShadow: '0 0 25px rgba(255, 179, 0, 0.35)',
+              border: 'none'
+            }}
+            onClick={() => {
+              playClick();
+              if (!user) {
+                onOpenAuth();
+              } else {
+                onOpenTournaments();
+              }
+            }}
+          >
+            <Trophy size={22} color="#0a0d14" fill="#0a0d14" style={{ flexShrink: 0 }} />
+            <span>🏆 Tournament Mode (8-Player Knockout)</span>
           </button>
         </div>
 
@@ -254,7 +321,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
           <button
             className="btn btn-secondary"
             style={{ fontSize: '0.92rem', padding: '10px 18px' }}
-            onClick={handleCreateRoom}
+            onClick={handleOpenCreateModal}
             disabled={creating}
           >
             <PlusCircle size={18} />
@@ -353,7 +420,7 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
       </div>
 
       {/* Podium Teaser */}
-      {topPlayers.length > 0 && (
+      {topPlayers.length > 0 && (topPlayers[0]?.wins > 0 || topPlayers[0]?.xp > 0) && (
         <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(16px, 3.5vw, 24px) clamp(16px, 4vw, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <Trophy size={28} color="#ffb300" style={{ flexShrink: 0 }} />
@@ -438,6 +505,191 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Create Private Room Modal with Arena Stake Selection */}
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <PlusCircle size={22} color="var(--neon-cyan)" />
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', margin: 0 }}>
+                  Create Private Duel Room
+                </h2>
+              </div>
+              <button 
+                className="btn btn-secondary btn-icon" 
+                style={{ width: '32px', height: '32px' }}
+                onClick={() => { playClick(); setShowCreateModal(false); }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* User status */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              padding: '8px 14px',
+              marginBottom: '16px',
+              fontSize: '0.85rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
+                  color: '#fff',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '0.75rem'
+                }}>
+                  Lv. {user?.level || 1}
+                </span>
+                <span style={{ color: 'var(--text-secondary)' }}>{user?.username}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#ffc107' }}>
+                <span>🪙</span>
+                <span>{user?.coins ?? 500} Coins</span>
+              </div>
+            </div>
+
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', marginBottom: '16px', textAlign: 'left' }}>
+              Select the match stake for your private duel. Higher tiers unlock as you level up:
+            </p>
+
+            {createError && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255, 42, 109, 0.12)',
+                border: '1px solid rgba(255, 42, 109, 0.4)',
+                color: '#ff6b8b',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.82rem',
+                marginBottom: '14px'
+              }}>
+                <AlertCircle size={16} />
+                <span>{createError}</span>
+              </div>
+            )}
+
+            {/* Arena Tiers */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px', maxHeight: '280px', overflowY: 'auto' }}>
+              {ARENA_TIERS.map((tier) => {
+                const isLocked = (user?.level || 1) < tier.minLevel;
+                const isAffordable = (user?.coins ?? 500) >= tier.fee;
+                const isSelected = createFee === tier.fee;
+
+                return (
+                  <div
+                    key={tier.fee}
+                    onClick={() => {
+                      if (isLocked) {
+                        playMiss();
+                        setCreateError(`Requires Level ${tier.minLevel} to unlock.`);
+                      } else if (!isAffordable) {
+                        playMiss();
+                        setCreateError(`Insufficient coins. You have ${user?.coins ?? 500} 🪙, need ${tier.fee} 🪙.`);
+                      } else {
+                        playClick();
+                        setCreateFee(tier.fee);
+                        setCreateError('');
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      background: isSelected ? tier.bg : 'rgba(255, 255, 255, 0.03)',
+                      border: isSelected ? `2px solid ${tier.color}` : '1px solid rgba(255, 255, 255, 0.08)',
+                      boxShadow: isSelected ? `0 0 16px ${tier.color}40` : 'none',
+                      cursor: (isLocked || !isAffordable) ? 'not-allowed' : 'pointer',
+                      opacity: isLocked ? 0.55 : (!isAffordable ? 0.7 : 1),
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
+                      <span style={{ fontSize: '1.5rem' }}>{tier.icon}</span>
+                      <div>
+                        <div style={{ fontWeight: '800', fontSize: '0.95rem', color: isSelected ? '#fff' : 'var(--text-primary)' }}>
+                          {tier.name}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', gap: '8px', marginTop: '2px' }}>
+                          <span style={{ color: '#ffc107', fontWeight: '700' }}>🪙 {tier.fee} Stake</span>
+                          <span>•</span>
+                          <span style={{ color: '#00e676', fontWeight: '700' }}>🏆 {tier.pot} Pot</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      {isLocked ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: 'rgba(255, 42, 109, 0.15)',
+                          border: '1px solid rgba(255, 42, 109, 0.4)',
+                          color: '#ff6b8b',
+                          fontSize: '0.75rem',
+                          fontWeight: '800',
+                          padding: '3px 8px',
+                          borderRadius: '10px'
+                        }}>
+                          <Lock size={12} /> Lv. {tier.minLevel}
+                        </span>
+                      ) : !isAffordable ? (
+                        <span style={{
+                          fontSize: '0.75rem',
+                          color: '#ffb300',
+                          fontWeight: '800',
+                          background: 'rgba(255, 179, 0, 0.15)',
+                          padding: '3px 8px',
+                          borderRadius: '10px'
+                        }}>
+                          Low Coins
+                        </span>
+                      ) : isSelected ? (
+                        <span style={{
+                          background: 'rgba(0, 242, 254, 0.18)',
+                          border: '1px solid var(--neon-cyan)',
+                          color: 'var(--neon-cyan)',
+                          fontSize: '0.75rem',
+                          fontWeight: '900',
+                          padding: '3px 10px',
+                          borderRadius: '10px'
+                        }}>
+                          SELECTED ✓
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Select
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              className="btn btn-primary btn-3d"
+              style={{ width: '100%', padding: '14px', fontSize: '1rem', fontWeight: '800' }}
+              onClick={() => handleCreateRoom(createFee)}
+              disabled={creating}
+            >
+              {creating ? 'Creating Room...' : `Create Room (🪙 ${createFee} Stake)`}
+            </button>
           </div>
         </div>
       )}

@@ -4,9 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine, Base, SessionLocal
-from app.models import User, Room, Game, Guess, ChatMessage, Friendship
-from app.routes import auth, rooms, friends, leaderboard, history, presence
+from app.models import (
+    User, Room, Game, Guess, ChatMessage, Friendship,
+    Tournament, TournamentParticipant, TournamentMatch
+)
+from app.routes import auth, rooms, friends, leaderboard, history, presence, tournaments
 from app.websocket import handler as ws_handler
+from app.websocket import tournament_handler as ws_tournament_handler
 
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
@@ -16,6 +20,48 @@ from sqlalchemy import text
 try:
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE rooms ADD COLUMN is_private BOOLEAN DEFAULT 0"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE rooms ADD COLUMN entry_fee INTEGER DEFAULT 50"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 500"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN last_daily_bonus DATETIME"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE tournament_matches ADD COLUMN checkin_deadline DATETIME"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE tournament_matches ADD COLUMN is_forfeit BOOLEAN DEFAULT 0"))
         conn.commit()
 except Exception:
     pass
@@ -42,7 +88,9 @@ app.include_router(friends.router, prefix=settings.API_V1_STR)
 app.include_router(presence.router, prefix=settings.API_V1_STR)
 app.include_router(leaderboard.router, prefix=settings.API_V1_STR)
 app.include_router(history.router, prefix=settings.API_V1_STR)
+app.include_router(tournaments.router, prefix=settings.API_V1_STR)
 app.include_router(ws_handler.router)
+app.include_router(ws_tournament_handler.router)
 
 @app.get("/api/health")
 def health_check():

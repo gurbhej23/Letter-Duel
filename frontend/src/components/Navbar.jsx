@@ -4,7 +4,7 @@ import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Menu, X } from 'lucide-react';
 
-export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenFriends, onOpenProfile }) {
+export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenFriends, onOpenProfile, onOpenTournaments }) {
   const { user, logout } = useAuth();
   const { isMuted, toggleMute, playClick } = useSound();
   const { leaveRoom, currentRoomCode } = useSocket();
@@ -132,6 +132,17 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           <span>Ranks</span>
         </button>
 
+        {/* Tournaments */}
+        <button 
+          className="btn btn-secondary btn-sm"
+          onClick={() => handleNavAction(onOpenTournaments)}
+          title="8-Player Knockout Tournaments"
+          style={{ borderColor: 'rgba(255, 179, 0, 0.4)', color: '#ffb300' }}
+        >
+          <span style={{ fontSize: '1rem' }}>🏆</span>
+          <span>Tournaments</span>
+        </button>
+
         {/* Friends (if logged in) */}
         {user && (
           <button 
@@ -147,6 +158,30 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
         {/* User Profile Pill / Auth */}
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Coins Balance Chip */}
+            <div 
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.18), rgba(255, 179, 0, 0.06))',
+                border: '1px solid rgba(255, 179, 0, 0.4)',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '800',
+                color: '#ffc107',
+                boxShadow: '0 0 12px rgba(255, 179, 0, 0.15)',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease'
+              }}
+              onClick={() => handleNavAction(onOpenProfile)}
+              title="Coins Balance (Click to claim Daily Bonus)"
+            >
+              <span style={{ fontSize: '1rem' }}>🪙</span>
+              <span>{user.coins ?? 500}</span>
+            </div>
+
             <div 
               style={{
                 display: 'flex',
@@ -178,7 +213,20 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
                 {user.username.slice(0, 1).toUpperCase()}
               </div>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>{user.username}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>{user.username}</span>
+                  <span style={{
+                    background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
+                    fontSize: '0.65rem',
+                    padding: '1px 6px',
+                    borderRadius: '8px',
+                    fontWeight: '800',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.2)'
+                  }}>
+                    Lv. {user.level ?? 1}
+                  </span>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--neon-amber)' }}>
                   <Flame size={11} fill="currentColor" /> {user.current_streak} • {user.xp} XP
                 </div>
@@ -263,9 +311,37 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
                 {user.username.slice(0, 1).toUpperCase()}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: '800', fontSize: '1rem' }}>{user.username}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--neon-amber)' }}>
-                  <Flame size={13} fill="currentColor" /> {user.current_streak} Win Streak • {user.xp} XP
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: '800', fontSize: '1rem' }}>{user.username}</span>
+                  <span style={{
+                    background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
+                    fontSize: '0.7rem',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    fontWeight: '800',
+                    color: '#fff'
+                  }}>
+                    Lv. {user.level ?? 1}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    background: 'rgba(255, 179, 0, 0.15)',
+                    border: '1px solid rgba(255, 179, 0, 0.35)',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    color: '#ffc107',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    🪙 {user.coins ?? 500}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--neon-amber)' }}>
+                    <Flame size={12} fill="currentColor" /> {user.current_streak} Win Streak • {user.xp} XP
+                  </span>
                 </div>
               </div>
             </div>
@@ -279,6 +355,11 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           <button className="mobile-nav-item" onClick={() => handleNavAction(onOpenLeaderboard)}>
             <Trophy size={20} color="#ffb300" />
             <span>Global Duel Rankings</span>
+          </button>
+
+          <button className="mobile-nav-item" onClick={() => handleNavAction(onOpenTournaments)}>
+            <span style={{ fontSize: '1.2rem' }}>🏆</span>
+            <span>Knockout Tournaments</span>
           </button>
 
           {user && (

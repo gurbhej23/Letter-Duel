@@ -54,12 +54,31 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const updateUser = (updated) => {
-    setUser(prev => ({ ...prev, ...updated }));
+  const claimDailyBonus = async () => {
+    if (!token) return { success: false, message: 'Not logged in' };
+    try {
+      const res = await fetch('/api/auth/daily-bonus', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser(prev => ({
+          ...prev,
+          coins: data.coins,
+          last_daily_bonus: data.last_daily_bonus
+        }));
+        return { success: true, ...data };
+      } else {
+        return { success: false, message: data.detail || 'Could not claim daily bonus' };
+      }
+    } catch (e) {
+      return { success: false, message: 'Network error claiming daily bonus' };
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, updateUser, refreshUser: () => token && fetchMe(token) }}>
+    <AuthContext.Provider value={{ user, token, loading, login, logout, refreshUser: () => token && fetchMe(token), claimDailyBonus }}>
       {children}
     </AuthContext.Provider>
   );

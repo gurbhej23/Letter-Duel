@@ -38,6 +38,8 @@ async def send_sync_states(session: RoomSession):
     for pid, ws in list(session.connections.items()):
         try:
             view = session.game.get_player_view(pid)
+            view["entry_fee"] = getattr(session, "entry_fee", 50)
+            view["pot"] = getattr(session, "entry_fee", 50) * 2
             await ws.send_text(json.dumps({"type": "game_state", "data": view}))
         except Exception as e:
             logger.warning(f"Failed to sync state to player {pid}: {e}")
@@ -93,7 +95,8 @@ async def bot_turn_worker(session: RoomSession):
                 await broadcast_to_room(session, "game_won", {
                     "winner_id": result_data["winner_id"],
                     "reason": result_data["win_reason"],
-                    "game_over": True
+                    "game_over": True,
+                    "rewards": getattr(session.game, "rewards", None)
                 })
             else:
                 start_turn_timer(session)
@@ -144,7 +147,8 @@ def start_turn_timer(session: RoomSession):
                         await broadcast_to_room(session, "game_won", {
                             "winner_id": timeout_data["winner_id"],
                             "reason": timeout_data["win_reason"],
-                            "game_over": True
+                            "game_over": True,
+                            "rewards": getattr(session.game, "rewards", None)
                         })
                     else:
                         start_turn_timer(session)
@@ -188,20 +192,73 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
     db.add(db_game)
     db.flush()
 
-    # Update player stats
+    # Update player stats & awards
+    entry_fee = getattr(session, "entry_fee", None)
+    if not entry_fee and db_room:
+        entry_fee = getattr(db_room, "entry_fee", 50)
+    if not entry_fee:
+        entry_fee = 50
+
+    pot_reward = entry_fee * 2
+    winner_level_up = False
+    winner_coins = 500
+    winner_level = 1
+
     winner = db.query(User).filter(User.id == winner_id).first()
     if winner:
         winner.wins += 1
         winner.xp += 100
+        # Winner wins the opponent's entry stake: +entry_fee net coins!
+        winner.coins = (winner.coins or 500) + entry_fee
         winner.current_streak += 1
         if winner.current_streak > winner.best_streak:
             winner.best_streak = winner.current_streak
+
+        old_level = winner.level or 1
+        new_level = max(1, (winner.xp // 200) + 1)
+        if new_level > old_level:
+            winner_level_up = True
+            winner.level = new_level
+            winner.coins += 100  # Level up reward!
+        winner_coins = winner.coins
+        winner_level = winner.level
+
+    loser_level_up = False
+    loser_coins = 500
+    loser_level = 1
 
     loser = db.query(User).filter(User.id == loser_id).first()
     if loser:
         loser.losses += 1
         loser.xp += 25
+        # Loser loses their entry fee coins
+        loser.coins = max(0, (loser.coins or 500) - entry_fee)
         loser.current_streak = 0
+        old_loser_level = loser.level or 1
+        new_loser_level = max(1, (loser.xp // 200) + 1)
+        if new_loser_level > old_loser_level:
+            loser_level_up = True
+            loser.level = new_loser_level
+            loser.coins += 100
+        loser_coins = loser.coins
+        loser_level = loser.level
+
+    # Store reward breakdown in game session for broadcasting
+    session.game.rewards = {
+        "entry_fee": entry_fee,
+        "pot": pot_reward,
+        "winner_id": winner_id,
+        "winner_coins_won": entry_fee,
+        "loser_coins_lost": entry_fee,
+        "winner_xp_earned": 100,
+        "loser_xp_earned": 25,
+        "winner_coins": winner_coins,
+        "winner_level": winner_level,
+        "winner_level_up": winner_level_up,
+        "loser_coins": loser_coins,
+        "loser_level": loser_level,
+        "loser_level_up": loser_level_up
+    }
 
     # Save guesses
     for log in game.history_log:
@@ -216,6 +273,15 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
         db.add(db_guess)
 
     db.commit()
+
+    # Tournament advancement hook
+    try:
+        from app.game.tournament_manager import tournament_manager
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(tournament_manager.on_game_finished(session.room_code, winner_id, loser_id, db))
+    except Exception as e:
+        logger.error(f"Error in tournament advancement hook: {e}")
 
 async def handle_disconnect_grace_period(session: RoomSession, disconnected_player_id: int):
     """Wait 60s for reconnection; if expired, opponent wins by forfeit."""
@@ -232,7 +298,8 @@ async def handle_disconnect_grace_period(session: RoomSession, disconnected_play
                 await broadcast_to_room(session, "game_won", {
                     "winner_id": session.game.winner_id,
                     "reason": "Opponent disconnected and left the match.",
-                    "game_over": True
+                    "game_over": True,
+                    "rewards": getattr(session.game, "rewards", None)
                 })
                 await send_sync_states(session)
     except asyncio.CancelledError:
@@ -280,8 +347,16 @@ async def websocket_room_endpoint(
                 return
 
         if not session:
-            session = RoomSession(room_code=room_code)
+            room_fee = getattr(db_room, "entry_fee", 50) or 50
+            session = RoomSession(
+                room_code=room_code,
+                allow_custom_words=True,
+                is_private=getattr(db_room, "is_private", True),
+                entry_fee=room_fee
+            )
             room_manager.rooms[room_code] = session
+        elif db_room and hasattr(db_room, "entry_fee") and db_room.entry_fee:
+            session.entry_fee = db_room.entry_fee
 
         # Check if returning / reconnecting
         is_reconnect = False
@@ -397,7 +472,7 @@ async def websocket_room_endpoint(
                         })
                         if session.game.state == "WORD_SELECTION":
                             await broadcast_to_room(session, "game_starting", {
-                                "message": "Both players ready! Choose your secret word (5-15 letters)."
+                                "message": "Both players ready! Choose your secret word (3-20 letters)."
                             })
                         await send_sync_states(session)
 
@@ -417,6 +492,13 @@ async def websocket_room_endpoint(
                         })
                         if duel_started:
                             start_turn_timer(session)
+                            try:
+                                from app.game.tournament_manager import tournament_manager
+                                loop = asyncio.get_event_loop()
+                                if loop.is_running():
+                                    loop.create_task(tournament_manager.on_match_live(session.room_code, db))
+                            except Exception as e:
+                                logger.error(f"Error in tournament match live hook: {e}")
                         await send_sync_states(session)
                     else:
                         await websocket.send_text(json.dumps({
@@ -457,7 +539,8 @@ async def websocket_room_endpoint(
                             await broadcast_to_room(session, "game_won", {
                                 "winner_id": result_data["winner_id"],
                                 "reason": result_data["win_reason"],
-                                "game_over": True
+                                "game_over": True,
+                                "rewards": getattr(session.game, "rewards", None)
                             })
                         else:
                             start_turn_timer(session)
@@ -500,7 +583,8 @@ async def websocket_room_endpoint(
                             await broadcast_to_room(session, "game_won", {
                                 "winner_id": result_data["winner_id"],
                                 "reason": result_data["win_reason"],
-                                "game_over": True
+                                "game_over": True,
+                                "rewards": getattr(session.game, "rewards", None)
                             })
                         else:
                             start_turn_timer(session)
@@ -612,7 +696,8 @@ async def websocket_room_endpoint(
                         await broadcast_to_room(session, "game_won", {
                             "winner_id": session.game.winner_id,
                             "reason": f"{user.username} left the duel.",
-                            "game_over": True
+                            "game_over": True,
+                            "rewards": getattr(session.game, "rewards", None)
                         })
                         await broadcast_to_room(session, "chat_message", {
                             "sender_id": None,

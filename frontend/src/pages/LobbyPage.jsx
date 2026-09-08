@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { Copy, Check, Share2, Users, ArrowLeft, ShieldCheck, Loader2, Link2, Sparkles } from 'lucide-react';
+import { getTierForFee } from '../utils/arenaTiers';
 
 export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
   const { user } = useAuth();
@@ -58,10 +59,13 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
   const myPlayer = isP1 ? p1 : p2;
   const isReady = myPlayer?.is_ready || false;
 
+  const roomFee = gameState?.entry_fee || 50;
+  const tier = getTierForFee(roomFee);
+
   return (
     <div style={{ maxWidth: '820px', margin: '0 auto', padding: 'clamp(20px, 4vw, 40px) clamp(12px, 3vw, 20px)' }}>
       {/* Top bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '10px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '10px', flexWrap: 'wrap' }}>
         <button 
           className="btn btn-secondary btn-sm"
           onClick={() => { playClick(); onLeaveRoom(); }}
@@ -77,6 +81,58 @@ export default function LobbyPage({ roomCode, onLeaveRoom, onOpenFriends }) {
             <Users size={16} color="#00e676" /> Invite Duelist
           </button>
         )}
+      </div>
+
+      {/* Match Stake & Winner Pot Banner */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: tier.bg,
+        border: `1px solid ${tier.border}`,
+        borderRadius: 'var(--radius-md)',
+        padding: '12px 18px',
+        marginBottom: '20px',
+        boxShadow: `0 4px 16px ${tier.color}25`,
+        flexWrap: 'wrap',
+        gap: '10px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '1.6rem' }}>{tier.icon}</span>
+          <div>
+            <div style={{ fontWeight: '800', fontSize: '1rem', color: '#fff' }}>
+              {tier.name}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Level {tier.minLevel}+ Required Arena
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{
+            background: 'rgba(255, 179, 0, 0.15)',
+            border: '1px solid rgba(255, 179, 0, 0.35)',
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontWeight: '800',
+            fontSize: '0.85rem',
+            color: '#ffc107'
+          }}>
+            🪙 {roomFee} Coins Stake
+          </div>
+          <div style={{
+            background: 'rgba(0, 230, 118, 0.15)',
+            border: '1px solid rgba(0, 230, 118, 0.35)',
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontWeight: '800',
+            fontSize: '0.85rem',
+            color: '#00e676'
+          }}>
+            🏆 {roomFee * 2} Coins Winner Pot
+          </div>
+        </div>
       </div>
 
       {/* Main Room Banner: Show code ONLY for private rooms */}

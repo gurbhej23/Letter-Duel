@@ -35,7 +35,7 @@ export default function HowToPlayModal({ isOpen, onClose }) {
               1. Secret Word Selection
             </div>
             <div>
-              Both duelists secretly pick a word between <strong>5 and 15 letters</strong>. Neither player ever sees the other’s raw word—only its total letter count is revealed!
+              Both duelists secretly pick a word between <strong>3 and 20 letters</strong>. Neither player ever sees the other’s raw word—only its total letter count is revealed!
             </div>
           </div>
 

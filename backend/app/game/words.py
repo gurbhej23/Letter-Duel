@@ -1,8 +1,20 @@
 import re
 from typing import Tuple
 
-# Common standard English words (5-15 letters)
+# Common standard English words (3-20 letters)
 STANDARD_DICTIONARY = {
+    # 3 letters
+    "act", "air", "arm", "art", "bad", "bag", "bar", "bat", "bed", "bee",
+    "box", "boy", "bus", "car", "cat", "cow", "cup", "day", "dog", "ear",
+    "egg", "eye", "fan", "fly", "fox", "fun", "gas", "gun", "hat", "ice",
+    "key", "leg", "man", "map", "net", "oil", "owl", "pen", "pet", "pie",
+    "pig", "pot", "rat", "red", "run", "sea", "sky", "son", "sun", "tea",
+    "top", "toy", "van", "war", "win", "zoo",
+    # 4 letters
+    "bear", "bird", "blue", "boat", "book", "cake", "city", "cold", "dark", "door",
+    "duck", "duel", "farm", "fire", "fish", "frog", "game", "gold", "hand", "hero",
+    "iron", "jump", "king", "lake", "lion", "moon", "park", "play", "rain", "ring",
+    "rock", "rose", "ship", "snow", "star", "tree", "wind", "wolf", "word",
     # 5 letters
     "apple", "beach", "brain", "bread", "brick", "bridge", "brown", "chair", "chest", "clock",
     "cloud", "dance", "dream", "earth", "flame", "fruit", "ghost", "glass", "grape", "green",
@@ -68,14 +80,17 @@ STANDARD_DICTIONARY = {
     "championship", "architecture", "biodiversity", "constellation", "cryptography",
     "electromagnet", "encyclopedia", "illustration", "intelligence", "masterpiece",
     "neighborhood", "oceanography", "organization", "photographer", "refrigeration",
-    "temperatures", "thunderstorm", "transmission", "transportation"
+    "temperatures", "thunderstorm", "transmission", "transportation",
+    # 13-20 letters
+    "electromagnetic", "telecommunication", "hyperactivity", "counterproductive",
+    "characterization", "oversimplification", "incomprehensibility", "unconstitutional"
 }
 
 def validate_word(word: str, allow_custom: bool = True) -> Tuple[bool, str, str]:
     """
     Validates a secret word according to game rules:
     - Alphabetic characters only (no spaces, numbers, symbols)
-    - Length between 5 and 15
+    - Length between 3 and 20
     - Normalized to lowercase
     - If allow_custom is False, word must be in standard dictionary.
     
@@ -89,11 +104,11 @@ def validate_word(word: str, allow_custom: bool = True) -> Tuple[bool, str, str]
     if not re.match(r"^[a-z]+$", clean_word):
         return False, "", "Word must contain only alphabetic letters (A-Z) without numbers, spaces, or symbols."
     
-    if len(clean_word) < 5:
-        return False, "", "Word must contain at least 5 letters."
+    if len(clean_word) < 3:
+        return False, "", "Word must contain at least 3 letters."
     
-    if len(clean_word) > 15:
-        return False, "", "Word cannot exceed 15 letters."
+    if len(clean_word) > 20:
+        return False, "", "Word cannot exceed 20 letters."
     
     if not allow_custom and clean_word not in STANDARD_DICTIONARY:
         return False, "", f"'{clean_word.upper()}' was not found in the standard dictionary. Please choose a recognized English word."

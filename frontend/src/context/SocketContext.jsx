@@ -223,10 +223,14 @@ export function SocketProvider({ children }) {
           if (data.winner_id === user?.id) {
             sound.playVictory();
             triggerConfetti();
-            addToast("VICTORY! You won the Letter Duel! 🏆", "success");
+            const coinsWon = data.rewards?.winner_coins_won || 100;
+            addToast(`VICTORY! You won +${coinsWon} Coins! 🏆`, "success");
           } else {
             sound.playDefeat();
             addToast("Game Over! Opponent won the duel.", "danger");
+          }
+          if (data.rewards) {
+            setGameState(prev => prev ? { ...prev, rewards: data.rewards } : prev);
           }
         }
         else if (type === "opponent_disconnected") {

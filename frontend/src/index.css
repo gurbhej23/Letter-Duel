@@ -958,3 +958,132 @@ input, select, textarea, button {
     height: 280px !important;
   }
 }
+
+/* ==========================================================================
+   Letter Duel — Knockout Tournament Styling
+   ========================================================================== */
+
+.knockout-bracket-container {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 40px minmax(260px, 1fr) 40px minmax(260px, 1fr);
+  position: relative;
+  align-items: stretch;
+  margin-top: 10px;
+}
+
+.bracket-round-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.bracket-connector-col {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  position: relative;
+  width: 40px;
+  padding-top: 48px; /* Offset for column header height */
+}
+
+.bracket-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.bracket-line {
+  fill: none;
+  stroke: rgba(0, 242, 254, 0.35);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.3s ease, filter 0.3s ease;
+}
+
+.bracket-connector-col:hover .bracket-line {
+  stroke: var(--neon-cyan);
+  filter: drop-shadow(0 0 6px rgba(0, 242, 254, 0.6));
+}
+
+.bracket-col-header {
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.bracket-col-header span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.bracket-col-header h3 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 900;
+  margin-top: 2px;
+}
+
+.bracket-matches-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.semi-final-stack {
+  justify-content: space-around;
+  padding: 30px 0;
+}
+
+.final-stack {
+  justify-content: center;
+  padding: 60px 0;
+}
+
+.match-bracket-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.match-bracket-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 900px) {
+  .tourney-lobby-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bracket-mobile-tabs {
+    display: flex !important;
+  }
+
+  .knockout-bracket-container {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bracket-connector-col {
+    display: none !important;
+  }
+
+  .bracket-round-col {
+    display: none !important;
+  }
+
+  .bracket-round-col.active-mobile-col {
+    display: flex !important;
+  }
+
+  .semi-final-stack,
+  .final-stack {
+    padding: 0 !important;
+    justify-content: flex-start !important;
+  }
+}
+

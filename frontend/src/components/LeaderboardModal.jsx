@@ -77,7 +77,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 Loading rankings...
               </div>
-            ) : leaders.length === 0 ? (
+            ) : leaders.length === 0 || leaders.every(l => (l.wins === 0 && l.xp === 0)) ? (
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 No ranked players yet. Be the first to win!
               </div>

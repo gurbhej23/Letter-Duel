@@ -5,6 +5,10 @@ from app.schemas.user import UserResponse
 
 class RoomCreate(BaseModel):
     allow_custom_words: bool = True
+    entry_fee: int = 50
+
+class QuickmatchRequest(BaseModel):
+    entry_fee: int = 50
 
 class RoomJoin(BaseModel):
     room_code: str
@@ -19,6 +23,7 @@ class RoomResponse(BaseModel):
     player2_id: Optional[int] = None
     status: str
     is_private: bool = True
+    entry_fee: int = 50
     created_at: datetime
     player1: Optional[UserResponse] = None
     player2: Optional[UserResponse] = None

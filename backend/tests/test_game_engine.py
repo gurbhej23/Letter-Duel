@@ -3,20 +3,28 @@ from app.game.words import validate_word
 from app.game.engine import LetterDuelGame
 
 def test_word_validation():
-    # Valid
+    # Valid (between 3 and 20)
+    ok, word, _ = validate_word("cat")
+    assert ok is True
+    assert word == "cat"
+
     ok, word, _ = validate_word("apple")
     assert ok is True
     assert word == "apple"
 
-    # Too short (< 5)
-    ok, _, err = validate_word("cat")
-    assert ok is False
-    assert "at least 5 letters" in err
+    ok, word, _ = validate_word("supercalifragilistic")
+    assert ok is True
+    assert word == "supercalifragilistic"
 
-    # Too long (> 15)
-    ok, _, err = validate_word("supercalifragilistic")
+    # Too short (< 3)
+    ok, _, err = validate_word("hi")
     assert ok is False
-    assert "cannot exceed 15 letters" in err
+    assert "at least 3 letters" in err
+
+    # Too long (> 20)
+    ok, _, err = validate_word("supercalifragilisticx")
+    assert ok is False
+    assert "cannot exceed 20 letters" in err
 
     # Non-alpha
     ok, _, err = validate_word("duel123")

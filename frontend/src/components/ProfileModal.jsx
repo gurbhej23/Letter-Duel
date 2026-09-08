@@ -6,7 +6,7 @@ import { X, User, Flame, Trophy, Swords, Calendar, Clock } from 'lucide-react';
 const AVATARS = ['avatar-1', 'avatar-2', 'avatar-3', 'avatar-4', 'avatar-5', 'avatar-6'];
 
 export default function ProfileModal({ isOpen, onClose }) {
-  const { user, token, updateUser } = useAuth();
+  const { user, token, updateUser, claimDailyBonus } = useAuth();
   const { playClick, playHit } = useSound();
 
   const [username, setUsername] = useState(user?.username || '');
@@ -15,14 +15,20 @@ export default function ProfileModal({ isOpen, onClose }) {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
+  const [claimingDaily, setClaimingDaily] = useState(false);
+  const [dailyNotice, setDailyNotice] = useState('');
+
+  const [historyTab, setHistoryTab] = useState('1v1'); // '1v1' or 'tournaments'
+  const [tournamentHistory, setTournamentHistory] = useState([]);
 
   useEffect(() => {
     if (user) {
-      setUsername(user.username);
+      setUsername(user.username || '');
       setSelectedAvatar(user.avatar || 'avatar-1');
     }
     if (isOpen && token) {
       fetchHistory();
+      fetchTournamentHistory();
     }
   }, [isOpen, user, token]);
 
@@ -41,6 +47,34 @@ export default function ProfileModal({ isOpen, onClose }) {
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const fetchTournamentHistory = async () => {
+    try {
+      const res = await fetch('/api/tournaments/history', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTournamentHistory(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleClaimDaily = async () => {
+    playClick();
+    setClaimingDaily(true);
+    setDailyNotice('');
+    const res = await claimDailyBonus();
+    if (res.success) {
+      playHit();
+      setDailyNotice(`🎉 +${res.bonus_amount || 200} Coins claimed! Balance: ${res.coins} 🪙`);
+    } else {
+      setDailyNotice(res.message || 'Daily bonus already claimed for today.');
+    }
+    setClaimingDaily(false);
   };
 
   const handleSave = async (e) => {
@@ -80,6 +114,10 @@ export default function ProfileModal({ isOpen, onClose }) {
 
   const totalGames = user.wins + user.losses;
   const winRate = totalGames > 0 ? Math.round((user.wins / totalGames) * 100) : 0;
+  const userLevel = user.level || 1;
+  const userXp = user.xp || 0;
+  const currentLevelXp = userXp % 200;
+  const xpPercent = Math.min(100, Math.round((currentLevelXp / 200) * 100));
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -101,10 +139,102 @@ export default function ProfileModal({ isOpen, onClose }) {
           </button>
         </div>
 
+        {/* Level & Coins Card */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(142, 45, 226, 0.15) 0%, rgba(0, 242, 254, 0.12) 100%)',
+          border: '1px solid rgba(0, 242, 254, 0.25)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '16px',
+          marginBottom: '18px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
+                color: '#fff',
+                fontWeight: '900',
+                fontSize: '0.9rem',
+                padding: '4px 12px',
+                borderRadius: '12px',
+                boxShadow: '0 0 12px rgba(142, 45, 226, 0.4)'
+              }}>
+                LEVEL {userLevel}
+              </div>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '600' }}>
+                Duelist Rank
+              </span>
+            </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(255, 179, 0, 0.18)',
+              border: '1px solid rgba(255, 179, 0, 0.4)',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              fontSize: '1rem',
+              fontWeight: '800',
+              color: '#ffc107'
+            }}>
+              <span>🪙</span>
+              <span>{user.coins ?? 500} Coins</span>
+            </div>
+          </div>
+
+          {/* XP Progress Bar */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+              <span>XP Progress to Level {userLevel + 1}</span>
+              <span style={{ color: '#00f2fe', fontWeight: '700' }}>{currentLevelXp} / 200 XP ({xpPercent}%)</span>
+            </div>
+            <div style={{
+              width: '100%',
+              height: '10px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              borderRadius: '6px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${xpPercent}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #00f2fe, #8e2de2)',
+                borderRadius: '6px',
+                transition: 'width 0.4s ease'
+              }} />
+            </div>
+          </div>
+
+          {/* Daily Refill Action */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', flexWrap: 'wrap', gap: '8px' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Claim +200 free coins daily (or immediately if low on coins):
+            </span>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleClaimDaily}
+              disabled={claimingDaily}
+              style={{
+                borderColor: 'rgba(255, 179, 0, 0.5)',
+                color: '#ffc107',
+                fontWeight: '700',
+                background: 'rgba(255, 179, 0, 0.1)'
+              }}
+            >
+              {claimingDaily ? 'Claiming...' : '🎁 Claim Daily Bonus'}
+            </button>
+          </div>
+          {dailyNotice && (
+            <div style={{ marginTop: '8px', fontSize: '0.82rem', color: dailyNotice.includes('🎉') ? 'var(--neon-emerald)' : 'var(--neon-amber)' }}>
+              {dailyNotice}
+            </div>
+          )}
+        </div>
+
         {/* Stats Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 110px), 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 100px), 1fr))',
           gap: '10px',
           marginBottom: '20px'
         }}>
@@ -160,11 +290,32 @@ export default function ProfileModal({ isOpen, onClose }) {
           )}
         </form>
 
-        {/* Recent Matches */}
+        {/* Match & Tournament History */}
         <div>
-          <h3 style={{ fontSize: '1rem', fontFamily: 'var(--font-display)', marginBottom: '10px', color: 'var(--text-secondary)' }}>
-            Recent Match History
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${historyTab === '1v1' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+                onClick={() => { playClick(); setHistoryTab('1v1'); }}
+              >
+                1v1 Duels
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${historyTab === 'tournaments' ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+                onClick={() => { playClick(); setHistoryTab('tournaments'); }}
+              >
+                🏆 Tournaments
+              </button>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              {historyTab === '1v1' ? `${history.length} matches` : `${tournamentHistory.length} tournaments`}
+            </span>
+          </div>
+
           <div style={{
             background: 'var(--bg-surface)',
             borderRadius: 'var(--radius-md)',
@@ -172,35 +323,66 @@ export default function ProfileModal({ isOpen, onClose }) {
             maxHeight: '180px',
             overflowY: 'auto'
           }}>
-            {loadingHistory ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading history...</div>
-            ) : history.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>No matches recorded yet.</div>
+            {historyTab === '1v1' ? (
+              loadingHistory ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading history...</div>
+              ) : history.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>No 1v1 duels recorded yet.</div>
+              ) : (
+                history.map(m => (
+                  <div 
+                    key={m.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      fontSize: '0.88rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span className={`badge ${m.result === 'WIN' ? 'badge-emerald' : 'badge-rose'}`}>
+                        {m.result}
+                      </span>
+                      <span style={{ fontWeight: '700' }}>vs {m.opponent_username}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      <span>{m.guesses_count} guesses</span>
+                      <span>{Math.floor(m.duration_seconds / 60)}m {m.duration_seconds % 60}s</span>
+                    </div>
+                  </div>
+                ))
+              )
             ) : (
-              history.map(m => (
-                <div 
-                  key={m.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)',
-                    fontSize: '0.88rem'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span className={`badge ${m.result === 'WIN' ? 'badge-emerald' : 'badge-rose'}`}>
-                      {m.result}
-                    </span>
-                    <span style={{ fontWeight: '700' }}>vs {m.opponent_username}</span>
+              tournamentHistory.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>No tournaments completed yet. Enter the arena to compete!</div>
+              ) : (
+                tournamentHistory.map(th => (
+                  <div 
+                    key={th.tournament_id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      fontSize: '0.88rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span className={`badge ${th.placement === 1 ? 'badge-emerald' : 'badge-amber'}`}>
+                        {th.placement_title}
+                      </span>
+                      <span style={{ fontWeight: '700' }}>{th.tournament_name}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ffb300', fontWeight: '800', fontSize: '0.82rem' }}>
+                      <span>+{th.coins_awarded} 🪙</span>
+                      <span style={{ color: 'var(--neon-cyan)' }}>+{th.xp_awarded} XP</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    <span>{m.guesses_count} guesses</span>
-                    <span>{Math.floor(m.duration_seconds / 60)}m {m.duration_seconds % 60}s</span>
-                  </div>
-                </div>
-              ))
+                ))
+              )
             )}
           </div>
         </div>

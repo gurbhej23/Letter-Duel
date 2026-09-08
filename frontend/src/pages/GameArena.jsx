@@ -11,7 +11,7 @@ const ALPHABET_ROWS = [
 ];
 
 export default function GameArena({ roomCode, onLeaveGame }) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const sound = useSound();
   const { playClick, playKey, playHit, playMiss } = sound;
   const { gameState, sendEvent, sendChatMessage, chatMessages, typingUser, disconnectTimer, serverClockOffset, leaveRoom } = useSocket();
@@ -104,6 +104,13 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const myMask = gameState.my_mask || [];
   const isGameOver = gameState.state === 'GAME_OVER';
   const isWinner = isGameOver && gameState.winner_id === user?.id;
+
+  // Refresh user balance & level when game ends
+  useEffect(() => {
+    if (isGameOver && refreshUser) {
+      refreshUser();
+    }
+  }, [isGameOver]);
 
   // Rematch status
   const hasVotedRematch = gameState.rematch_votes?.includes(user?.id);
@@ -686,7 +693,26 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                 : (isWinner ? 'You outwitted your opponent in the Letter Duel!' : `${opponent?.username} conquered the duel.`)}
             </p>
 
-            {/* Secret Words Revealed */}
+            {/* Level Up Celebration Notification */}
+            {((isWinner && gameState.rewards?.winner_level_up) || (!isWinner && gameState.rewards?.loser_level_up)) && (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(142, 45, 226, 0.25) 0%, rgba(0, 242, 254, 0.25) 100%)',
+                border: '1px solid var(--neon-cyan)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px',
+                marginBottom: '16px',
+                boxShadow: '0 0 16px rgba(0, 242, 254, 0.3)'
+              }}>
+                <div style={{ fontWeight: '900', color: '#00f2fe', fontSize: '1.1rem' }}>
+                  🎉 LEVEL UP! You reached Level {isWinner ? (gameState.rewards?.winner_level || (user?.level || 1) + 1) : (gameState.rewards?.loser_level || (user?.level || 1) + 1)}!
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#ffc107', marginTop: '4px', fontWeight: '700' }}>
+                  +100 Bonus Coins Awarded 🪙
+                </div>
+              </div>
+            )}
+
+            {/* Secret Words & Rewards Breakdown */}
             <div style={{
               background: 'var(--bg-surface)',
               border: '1px solid var(--border-subtle)',
@@ -705,6 +731,33 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                 <span style={{ color: 'var(--text-muted)' }}>Your Secret Word:</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', color: '#fff' }}>
                   {gameState.my_word}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Coins Outcome:</span>
+                <span style={{
+                  fontWeight: '800',
+                  color: isWinner ? 'var(--neon-emerald)' : 'var(--neon-rose)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <span>🪙</span>
+                  {isWinner
+                    ? `+${gameState.rewards?.winner_coins_won || gameState.entry_fee || 50} Won from Rival!`
+                    : `-${gameState.rewards?.loser_coins_lost || gameState.entry_fee || 50} Stake Deducted`}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Total Match Pot:</span>
+                <span style={{ fontWeight: '800', color: '#ffc107', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>🏆</span> {gameState.rewards?.pot || (gameState.entry_fee || 50) * 2} Coins
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Updated Balance:</span>
+                <span style={{ fontWeight: '800', color: '#00f2fe' }}>
+                  🪙 {isWinner ? (gameState.rewards?.winner_coins ?? user?.coins) : (gameState.rewards?.loser_coins ?? user?.coins)} Coins
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>

@@ -265,6 +265,31 @@ export default function AuthModal({ isOpen, onClose }) {
           </button>
         </div>
 
+        {/* Welcome Bonus Callout on Registration */}
+        {isRegister && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.15), rgba(255, 179, 0, 0.05))',
+            border: '1px solid rgba(255, 179, 0, 0.35)',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 14px',
+            marginBottom: '14px',
+            boxShadow: '0 4px 16px rgba(255, 179, 0, 0.1)'
+          }}>
+            <span style={{ fontSize: '1.4rem' }}>🎁</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#ffc107' }}>
+                +500 Coins Welcome Gift!
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Start your dueling career with free match stakes and level progression rewards.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Error Alert */}
         {error && (
           <div style={{

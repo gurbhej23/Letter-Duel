@@ -82,6 +82,9 @@ class LetterDuelGame:
         # Rematch requests: set of player IDs who voted for rematch
         self.rematch_votes: set[int] = set()
 
+        # Rewards metadata upon game finish
+        self.rewards: Optional[dict] = None
+
     def add_player2(self, player2_id: int, player2_username: str, player2_avatar: str = "avatar-2"):
         """Add Player 2 to the duel room."""
         self.player2_id = player2_id
@@ -556,6 +559,7 @@ class LetterDuelGame:
             "opponent_secret_word": opponent_secret_word,  # ONLY when GAME_OVER
             "winner_id": self.winner_id,
             "win_reason": self.win_reason,
+            "rewards": self.rewards,
             "history_log": self.history_log[-30:],
             "rematch_votes": list(self.rematch_votes)
         }

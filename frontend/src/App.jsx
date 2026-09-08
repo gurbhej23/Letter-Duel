@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
 import LobbyPage from './pages/LobbyPage';
 import GameArena from './pages/GameArena';
+import TournamentPage from './pages/TournamentPage';
 import WordSelectModal from './pages/WordSelectModal';
 import AuthModal from './components/AuthModal';
 import HowToPlayModal from './components/HowToPlayModal';
@@ -27,9 +28,22 @@ function MainApp() {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [matchmakingOpen, setMatchmakingOpen] = useState(false);
+  const [tournamentOpen, setTournamentOpen] = useState(() => {
+    return sessionStorage.getItem('letter_duel_tournament_open') === 'true';
+  });
   const [incomingChallenge, setIncomingChallenge] = useState(null);
 
   const seenInvitesRef = useRef(new Set());
+
+  const handleOpenTournament = () => {
+    sessionStorage.setItem('letter_duel_tournament_open', 'true');
+    setTournamentOpen(true);
+  };
+
+  const handleCloseTournament = () => {
+    sessionStorage.removeItem('letter_duel_tournament_open');
+    setTournamentOpen(false);
+  };
 
   // Poll for room invitations if user is logged in and not in a room
   useEffect(() => {
@@ -97,6 +111,8 @@ function MainApp() {
     } else {
       currentView = 'lobby';
     }
+  } else if (tournamentOpen) {
+    currentView = 'tournament';
   }
 
   const isWordSelectOpen = currentRoomCode && gameState?.state === 'WORD_SELECTION';
@@ -109,6 +125,13 @@ function MainApp() {
         onOpenLeaderboard={() => setLeaderboardOpen(true)}
         onOpenFriends={() => setFriendsOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
+        onOpenTournaments={() => {
+          if (!user) {
+            setAuthOpen(true);
+          } else {
+            handleOpenTournament();
+          }
+        }}
       />
 
       <main style={{ flex: 1 }}>
@@ -120,6 +143,23 @@ function MainApp() {
             onOpenMatchmaking={() => setMatchmakingOpen(true)}
             onRoomCreated={handleRoomCreated}
             onRoomJoined={handleRoomJoined}
+            onOpenTournaments={() => {
+              if (!user) {
+                setAuthOpen(true);
+              } else {
+                handleOpenTournament();
+              }
+            }}
+          />
+        )}
+
+        {currentView === 'tournament' && (
+          <TournamentPage
+            onBackToHome={handleCloseTournament}
+            onEnterMatch={(code) => {
+              sessionStorage.setItem('letter_duel_tournament_open', 'true');
+              connectToRoom(code);
+            }}
           />
         )}
 
