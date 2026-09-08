@@ -192,56 +192,100 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
     db.add(db_game)
     db.flush()
 
+    # Check if match has already been settled (idempotency guard)
+    from app.models.coin_transaction import CoinTransaction
+    from app.game.ranks import calculate_rank_from_rating, calculate_rating_change, get_rank_tier_index
+
+    existing_tx = db.query(CoinTransaction).filter(
+        CoinTransaction.reference_id == session.room_code,
+        CoinTransaction.transaction_type == "MATCH_VICTORY"
+    ).first()
+    if existing_tx:
+        logger.info(f"[Settlement] Room {session.room_code} already settled; skipping duplicate reward.")
+        return
+
     # Update player stats & awards
     entry_fee = getattr(session, "entry_fee", None)
     if not entry_fee and db_room:
-        entry_fee = getattr(db_room, "entry_fee", 50)
+        entry_fee = getattr(db_room, "entry_fee", 10)
     if not entry_fee:
-        entry_fee = 50
+        entry_fee = 10
 
     pot_reward = entry_fee * 2
-    winner_level_up = False
-    winner_coins = 500
-    winner_level = 1
+    winner_coins = 100
+    loser_coins = 100
 
     winner = db.query(User).filter(User.id == winner_id).first()
+    loser = db.query(User).filter(User.id == loser_id).first()
+
+    win_delta = 25
+    new_winner_rating = 825
+    new_winner_rank = "Bronze III"
+    old_winner_rank = "Bronze III"
+
     if winner:
         winner.wins += 1
         winner.xp += 100
-        # Winner wins the opponent's entry stake: +entry_fee net coins!
-        winner.coins = (winner.coins or 500) + entry_fee
+        winner.coins = (winner.coins or 100) + entry_fee
         winner.current_streak += 1
         if winner.current_streak > winner.best_streak:
             winner.best_streak = winner.current_streak
 
-        old_level = winner.level or 1
-        new_level = max(1, (winner.xp // 200) + 1)
-        if new_level > old_level:
-            winner_level_up = True
-            winner.level = new_level
-            winner.coins += 100  # Level up reward!
+        old_winner_rank = winner.rank or "Bronze III"
+        win_delta, new_winner_rating = calculate_rating_change(
+            is_winner=True,
+            current_rating=winner.rating or 800,
+            opponent_rating=loser.rating or 800 if loser else 800,
+            win_streak=winner.current_streak
+        )
+        new_winner_rank = calculate_rank_from_rating(new_winner_rating)
+        winner.rating = new_winner_rating
+        winner.rank = new_winner_rank
+        if get_rank_tier_index(new_winner_rank) > get_rank_tier_index(winner.highest_rank or "Bronze III"):
+            winner.highest_rank = new_winner_rank
         winner_coins = winner.coins
-        winner_level = winner.level
 
-    loser_level_up = False
-    loser_coins = 500
-    loser_level = 1
+        # Ledger transaction for winner reward
+        win_tx = CoinTransaction(
+            user_id=winner.id,
+            amount=entry_fee,
+            balance_after=winner.coins,
+            transaction_type="MATCH_VICTORY",
+            reference_id=session.room_code
+        )
+        db.add(win_tx)
 
-    loser = db.query(User).filter(User.id == loser_id).first()
+    loss_delta = -15
+    new_loser_rating = 800
+    new_loser_rank = "Bronze III"
+    old_loser_rank = "Bronze III"
+
     if loser:
         loser.losses += 1
         loser.xp += 25
-        # Loser loses their entry fee coins
-        loser.coins = max(0, (loser.coins or 500) - entry_fee)
+        loser.coins = max(0, (loser.coins or 100) - entry_fee)
         loser.current_streak = 0
-        old_loser_level = loser.level or 1
-        new_loser_level = max(1, (loser.xp // 200) + 1)
-        if new_loser_level > old_loser_level:
-            loser_level_up = True
-            loser.level = new_loser_level
-            loser.coins += 100
+
+        old_loser_rank = loser.rank or "Bronze III"
+        loss_delta, new_loser_rating = calculate_rating_change(
+            is_winner=False,
+            current_rating=loser.rating or 800,
+            opponent_rating=winner.rating or 800 if winner else 800
+        )
+        new_loser_rank = calculate_rank_from_rating(new_loser_rating)
+        loser.rating = new_loser_rating
+        loser.rank = new_loser_rank
         loser_coins = loser.coins
-        loser_level = loser.level
+
+        # Ledger transaction for loser entry fee loss
+        loss_tx = CoinTransaction(
+            user_id=loser.id,
+            amount=-entry_fee,
+            balance_after=loser.coins,
+            transaction_type="ARENA_ENTRY_FEE",
+            reference_id=session.room_code
+        )
+        db.add(loss_tx)
 
     # Store reward breakdown in game session for broadcasting
     session.game.rewards = {
@@ -250,14 +294,18 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
         "winner_id": winner_id,
         "winner_coins_won": entry_fee,
         "loser_coins_lost": entry_fee,
-        "winner_xp_earned": 100,
-        "loser_xp_earned": 25,
         "winner_coins": winner_coins,
-        "winner_level": winner_level,
-        "winner_level_up": winner_level_up,
         "loser_coins": loser_coins,
-        "loser_level": loser_level,
-        "loser_level_up": loser_level_up
+        "winner_rating_change": win_delta,
+        "winner_rating": new_winner_rating,
+        "winner_rank": new_winner_rank,
+        "winner_old_rank": old_winner_rank,
+        "winner_rank_up": get_rank_tier_index(new_winner_rank) > get_rank_tier_index(old_winner_rank),
+        "loser_rating_change": loss_delta,
+        "loser_rating": new_loser_rating,
+        "loser_rank": new_loser_rank,
+        "loser_old_rank": old_loser_rank,
+        "loser_rank_down": get_rank_tier_index(new_loser_rank) < get_rank_tier_index(old_loser_rank)
     }
 
     # Save guesses

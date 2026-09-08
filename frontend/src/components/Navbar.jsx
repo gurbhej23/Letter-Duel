@@ -1,28 +1,73 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Menu, X } from 'lucide-react';
+import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Menu, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { getRankMeta } from '../utils/rankUtils';
 
 export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenFriends, onOpenProfile, onOpenTournaments }) {
   const { user, logout } = useAuth();
   const { isMuted, toggleMute, playClick } = useSound();
-  const { leaveRoom, currentRoomCode } = useSocket();
+  const { leaveRoom, currentRoomCode, gameState } = useSocket();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const drawerRef = useRef(null);
+
+  const userRank = user?.rank || 'Bronze III';
+  const rankMeta = getRankMeta(userRank);
+
+  const isMatchActive = Boolean(
+    currentRoomCode && gameState?.state !== 'GAME_OVER'
+  );
 
   const handleMute = () => {
     playClick();
     toggleMute();
   };
 
-  const handleLogout = () => {
+  const handleLogoutClick = () => {
     playClick();
     setMobileMenuOpen(false);
-    if (currentRoomCode) {
-      leaveRoom(true); // Forfeit/leave match cleanly
+    if (isMatchActive) {
+      setShowLeaveConfirm(true);
+    } else {
+      performLogout();
     }
-    logout();
+  };
+
+  const handleCancelLeave = () => {
+    playClick();
+    setShowLeaveConfirm(false);
+  };
+
+  const performLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    const wasPlaying = Boolean(currentRoomCode);
+    try {
+      if (currentRoomCode) {
+        await leaveRoom(true); // Forfeit/leave match cleanly on server
+      }
+    } catch (err) {
+      console.warn("Error leaving room on logout:", err);
+    } finally {
+      sessionStorage.removeItem('letter_duel_room_code');
+      localStorage.removeItem('letter_duel_room_code');
+      sessionStorage.removeItem('letter_duel_view');
+      sessionStorage.removeItem('letter_duel_tournament_open');
+      setShowLeaveConfirm(false);
+      setIsLoggingOut(false);
+      logout();
+
+      // If user signed out while playing a match, redirect to main page then pop open Login modal
+      if (wasPlaying && onOpenAuth) {
+        setTimeout(() => {
+          onOpenAuth();
+        }, 280);
+      }
+    }
   };
 
   const handleNavAction = (action) => {
@@ -132,17 +177,6 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           <span>Ranks</span>
         </button>
 
-        {/* Tournaments */}
-        <button 
-          className="btn btn-secondary btn-sm"
-          onClick={() => handleNavAction(onOpenTournaments)}
-          title="8-Player Knockout Tournaments"
-          style={{ borderColor: 'rgba(255, 179, 0, 0.4)', color: '#ffb300' }}
-        >
-          <span style={{ fontSize: '1rem' }}>🏆</span>
-          <span>Tournaments</span>
-        </button>
-
         {/* Friends (if logged in) */}
         {user && (
           <button 
@@ -216,26 +250,33 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>{user.username}</span>
                   <span style={{
-                    background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
-                    fontSize: '0.65rem',
+                    background: rankMeta.bg,
+                    color: rankMeta.color,
+                    border: `1px solid ${rankMeta.border}`,
+                    fontSize: '0.68rem',
                     padding: '1px 6px',
                     borderRadius: '8px',
                     fontWeight: '800',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.2)'
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px'
                   }}>
-                    Lv. {user.level ?? 1}
+                    {rankMeta.badge} {userRank}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--neon-amber)' }}>
-                  <Flame size={11} fill="currentColor" /> {user.current_streak} • {user.xp} XP
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: 'var(--neon-amber)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                    <Flame size={11} fill="currentColor" /> {user.current_streak || 0}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)' }}>•</span>
+                  <span style={{ color: 'var(--neon-cyan)', fontWeight: '700' }}>⚔️ {user.wins || 0}W</span>
                 </div>
               </div>
             </div>
 
             <button 
               className="btn btn-secondary btn-icon" 
-              onClick={handleLogout}
+              onClick={handleLogoutClick}
               title="Logout"
               aria-label="Logout"
             >
@@ -314,14 +355,18 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontWeight: '800', fontSize: '1rem' }}>{user.username}</span>
                   <span style={{
-                    background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
-                    fontSize: '0.7rem',
+                    background: rankMeta.bg,
+                    color: rankMeta.color,
+                    border: `1px solid ${rankMeta.border}`,
+                    fontSize: '0.72rem',
                     padding: '2px 8px',
                     borderRadius: '10px',
                     fontWeight: '800',
-                    color: '#fff'
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}>
-                    Lv. {user.level ?? 1}
+                    {rankMeta.badge} {userRank}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
@@ -337,10 +382,10 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
                     alignItems: 'center',
                     gap: '4px'
                   }}>
-                    🪙 {user.coins ?? 500}
+                    🪙 {user.coins ?? 100}
                   </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--neon-amber)' }}>
-                    <Flame size={12} fill="currentColor" /> {user.current_streak} Win Streak • {user.xp} XP
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--neon-amber)' }}>
+                    <Flame size={12} fill="currentColor" /> {user.current_streak || 0} Streak • <span style={{ color: 'var(--neon-cyan)', fontWeight: '700' }}>⚔️ {user.wins || 0} Wins</span>
                   </span>
                 </div>
               </div>
@@ -355,11 +400,6 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           <button className="mobile-nav-item" onClick={() => handleNavAction(onOpenLeaderboard)}>
             <Trophy size={20} color="#ffb300" />
             <span>Global Duel Rankings</span>
-          </button>
-
-          <button className="mobile-nav-item" onClick={() => handleNavAction(onOpenTournaments)}>
-            <span style={{ fontSize: '1.2rem' }}>🏆</span>
-            <span>Knockout Tournaments</span>
           </button>
 
           {user && (
@@ -379,7 +419,7 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
               <button 
                 className="mobile-nav-item" 
                 style={{ color: 'var(--neon-rose)', borderColor: 'rgba(255, 42, 109, 0.25)' }}
-                onClick={handleLogout}
+                onClick={handleLogoutClick}
               >
                 <LogOut size={20} color="#ff2a6d" />
                 <span>Sign Out</span>
@@ -396,6 +436,71 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
             </button>
           )}
         </div>
+      )}
+
+      {/* Leave Match Confirmation Modal Popup (Portaled to body with rich animations) */}
+      {showLeaveConfirm && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="leave-modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isLoggingOut) {
+              handleCancelLeave();
+            }
+          }}
+        >
+          <div className="leave-modal-card card-3d-tilt">
+            {/* Pulsing Warning Radar Badge */}
+            <div className="leave-warning-badge">
+              <AlertTriangle size={34} color="#ff2a6d" />
+            </div>
+
+            <h3 className="leave-modal-title">
+              Are you sure you want to leave this match?
+            </h3>
+            
+            <p className="leave-modal-desc">
+              Signing out while playing will <strong style={{ color: 'var(--neon-rose)' }}>forfeit the match</strong> and it will be recorded as a defeat. Your rival will be awarded the victory.
+            </p>
+
+            <div className="leave-modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-3d"
+                onClick={handleCancelLeave}
+                disabled={isLoggingOut}
+                style={{ fontWeight: '700', padding: '12px 16px', minHeight: '46px' }}
+              >
+                Stay in Match
+              </button>
+              
+              <button
+                type="button"
+                className="btn btn-3d-danger"
+                style={{
+                  fontWeight: '800',
+                  padding: '12px 16px',
+                  minHeight: '46px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+                onClick={performLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} />
+                    <span>Leaving Match...</span>
+                  </>
+                ) : (
+                  <span>Yes, Leave Match</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </nav>
   );

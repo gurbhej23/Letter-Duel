@@ -12,7 +12,7 @@ class Room(Base):
     player2_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     status = Column(String(30), default="WAITING")  # WAITING, READY, WORD_SELECTION, PLAYING, GAME_OVER, EXPIRED
     is_private = Column(Boolean, default=True)
-    entry_fee = Column(Integer, default=50, nullable=False)
+    entry_fee = Column(Integer, default=10, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)
 

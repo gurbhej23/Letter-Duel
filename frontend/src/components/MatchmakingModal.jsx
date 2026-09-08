@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
-import { X, Swords, CheckCircle2, Zap, ShieldCheck, Lock, AlertCircle, ArrowLeft } from 'lucide-react';
-import { ARENA_TIERS, getTierForFee } from '../utils/arenaTiers';
+import { X, Swords, CheckCircle2, Zap, ShieldCheck, Lock, AlertCircle, ArrowLeft, Trophy, Star } from 'lucide-react';
+import { ARENA_TIERS, getTierForFee, getRecommendedArena } from '../utils/arenaTiers';
+import { isRankEligible, getRankMeta } from '../utils/rankUtils';
 
 export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const { user, token } = useAuth();
@@ -11,10 +12,10 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const { playClick, playMiss, playVictory } = sound;
   const { gameState, connectToRoom, disconnect, onlineCount } = useSocket();
 
-  const [selectedFee, setSelectedFee] = useState(50);
+  const [selectedFee, setSelectedFee] = useState(10);
   const [searching, setSearching] = useState(false);
   const [errorNotice, setErrorNotice] = useState('');
-  const [statusText, setStatusText] = useState('Initializing global neural radar...');
+  const [statusText, setStatusText] = useState('Finding a worthy rival...');
   const [matched, setMatched] = useState(false);
   const [matchedOpponent, setMatchedOpponent] = useState(null);
   const [countdown, setCountdown] = useState(3);
@@ -89,16 +90,16 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const handleStartSearch = async () => {
     if (!token) return;
     const tier = getTierForFee(selectedFee);
-    const userCoins = user?.coins ?? 500;
-    const userLevel = user?.level || 1;
+    const userCoins = user?.coins ?? 100;
+    const userRank = user?.rank || "Bronze III";
 
     if (userCoins < tier.fee) {
       setErrorNotice(`Insufficient coins (${userCoins} 🪙). Need ${tier.fee} 🪙.`);
       playMiss();
       return;
     }
-    if (userLevel < tier.minLevel) {
-      setErrorNotice(`Requires Level ${tier.minLevel} to unlock. (Current: Lv. ${userLevel})`);
+    if (!isRankEligible(userRank, tier.minRank)) {
+      setErrorNotice(`Reach ${tier.minRank} rank to unlock this arena. (Current: ${userRank})`);
       playMiss();
       return;
     }
@@ -106,19 +107,19 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     playClick();
     setErrorNotice('');
     setSearching(true);
-    setStatusText(`Scanning pool for ${tier.name} rival (${tier.fee} 🪙)...`);
+    setStatusText('Finding a worthy rival...');
 
     const messages = [
-      `Scanning global pool for an available duelist in ${tier.name}...`,
-      `Searching for rivals with ${tier.fee} coins stake...`,
-      `Matching with equal-level online challengers...`,
+      'Finding a worthy rival...',
+      `Scanning ${tier.name} for available challengers...`,
+      'Searching for opponents with similar rank...',
       `Waiting for an opponent in the ${tier.name}...`
     ];
     let idx = 0;
     statusIntervalRef.current = setInterval(() => {
       idx = (idx + 1) % messages.length;
       setStatusText(messages[idx]);
-    }, 3500);
+    }, 3200);
 
     try {
       const res = await fetch('/api/rooms/quickmatch', {
@@ -184,8 +185,11 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const oppName = matchedOpponent?.username || 'Challenger';
   const myName = user?.username || 'Player 1';
   const currentTier = getTierForFee(selectedFee);
-  const userCoins = user?.coins ?? 500;
-  const userLevel = user?.level || 1;
+  const userCoins = user?.coins ?? 100;
+  const userRank = user?.rank || 'Bronze III';
+  const userWins = user?.wins ?? 0;
+  const rankMeta = getRankMeta(userRank);
+  const recommendedTier = getRecommendedArena(user);
 
   return (
     <div className="modal-overlay" style={{ backdropFilter: 'blur(16px)', zIndex: 1100 }} onClick={searching || matched ? undefined : onClose}>
@@ -203,7 +207,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* ======================================================== */}
-        {/* 1. ARENA TIER SELECTION SCREEN (Choose Stake & Unlock by Level) */}
+        {/* 1. ARENA TIER SELECTION SCREEN (Choose Stake & Rank) */}
         {/* ======================================================== */}
         {!searching && !matched ? (
           <div>
@@ -224,7 +228,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               </button>
             </div>
 
-            {/* User status info pill */}
+            {/* User summary info pill (Rank, Wins, Coins - NO Level) */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -234,20 +238,28 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               borderRadius: 'var(--radius-md)',
               padding: '8px 14px',
               marginBottom: '16px',
-              fontSize: '0.85rem'
+              fontSize: '0.85rem',
+              flexWrap: 'wrap',
+              gap: '8px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{
-                  background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
-                  color: '#fff',
-                  padding: '2px 8px',
-                  borderRadius: '10px',
+                  background: rankMeta.bg,
+                  color: rankMeta.color,
+                  border: `1px solid ${rankMeta.border}`,
+                  padding: '2px 10px',
+                  borderRadius: '12px',
                   fontWeight: '800',
-                  fontSize: '0.75rem'
+                  fontSize: '0.78rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}>
-                  Lv. {userLevel}
+                  {rankMeta.badge} {userRank}
                 </span>
-                <span style={{ color: 'var(--text-secondary)' }}>{user?.username}</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                  ⚔️ {userWins} Wins
+                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: '#ffc107' }}>
                 <span>🪙</span>
@@ -256,7 +268,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
             </div>
 
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', marginBottom: '16px', textAlign: 'left' }}>
-              Select your match stake tier. Higher stake arenas unlock as you level up!
+              Choose your arena and compete for bigger rewards.
             </p>
 
             {/* Error notice */}
@@ -279,11 +291,12 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
             )}
 
             {/* Tiers List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px', maxHeight: '320px', overflowY: 'auto', paddingRight: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px', maxHeight: '330px', overflowY: 'auto', paddingRight: '4px' }}>
               {ARENA_TIERS.map((tier) => {
-                const isLocked = userLevel < tier.minLevel;
+                const isLocked = !isRankEligible(userRank, tier.minRank);
                 const isAffordable = userCoins >= tier.fee;
                 const isSelected = selectedFee === tier.fee;
+                const isRecommended = recommendedTier?.fee === tier.fee;
 
                 return (
                   <div
@@ -291,7 +304,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                     onClick={() => {
                       if (isLocked) {
                         playMiss();
-                        setErrorNotice(`Requires Level ${tier.minLevel} to unlock. Win duels to level up!`);
+                        setErrorNotice(`Requires ${tier.reqLabel} to enter. Win duels to raise your rank!`);
                       } else if (!isAffordable) {
                         playMiss();
                         setErrorNotice(`Insufficient coins. You have ${userCoins} 🪙, need ${tier.fee} 🪙.`);
@@ -308,7 +321,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                       padding: '12px 16px',
                       borderRadius: 'var(--radius-md)',
                       background: isSelected ? tier.bg : 'rgba(255, 255, 255, 0.03)',
-                      border: isSelected ? `2px solid ${tier.color}` : '1px solid rgba(255, 255, 255, 0.08)',
+                      border: isSelected ? `2px solid ${tier.color}` : isRecommended ? '1px solid rgba(255, 179, 0, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
                       boxShadow: isSelected ? `0 0 16px ${tier.color}40` : 'none',
                       cursor: (isLocked || !isAffordable) ? 'not-allowed' : 'pointer',
                       opacity: isLocked ? 0.55 : (!isAffordable ? 0.7 : 1),
@@ -319,11 +332,27 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' }}>
                       <span style={{ fontSize: '1.6rem' }}>{tier.icon}</span>
                       <div>
-                        <div style={{ fontWeight: '800', fontSize: '0.98rem', color: isSelected ? '#fff' : 'var(--text-primary)' }}>
-                          {tier.name}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: '800', fontSize: '0.98rem', color: isSelected ? '#fff' : 'var(--text-primary)' }}>
+                            {tier.name}
+                          </span>
+                          {isRecommended && (
+                            <span style={{
+                              background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.25), rgba(255, 107, 0, 0.25))',
+                              border: '1px solid #ffb300',
+                              color: '#ffc107',
+                              fontSize: '0.68rem',
+                              fontWeight: '900',
+                              padding: '1px 6px',
+                              borderRadius: '6px',
+                              letterSpacing: '0.5px'
+                            }}>
+                              ⭐ RECOMMENDED
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                          <span style={{ color: '#ffc107', fontWeight: '700' }}>🪙 {tier.fee} Stake</span>
+                          <span style={{ color: '#ffc107', fontWeight: '700' }}>🪙 {tier.fee} Entry</span>
                           <span>•</span>
                           <span style={{ color: '#00e676', fontWeight: '700' }}>🏆 {tier.pot} Pot</span>
                         </div>
@@ -344,7 +373,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                           padding: '3px 8px',
                           borderRadius: '10px'
                         }}>
-                          <Lock size={12} /> Lv. {tier.minLevel}
+                          <Lock size={12} /> {tier.reqLabel}
                         </span>
                       ) : !isAffordable ? (
                         <span style={{
@@ -405,7 +434,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                 gap: '8px'
               }}
               onClick={handleStartSearch}
-              disabled={userLevel < currentTier.minLevel || userCoins < currentTier.fee}
+              disabled={!isRankEligible(userRank, currentTier.minRank) || userCoins < currentTier.fee}
             >
               <Zap size={18} />
               <span>Enter {currentTier.name} (Find Rival)</span>
@@ -606,7 +635,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
               marginBottom: '6px',
               letterSpacing: '0.5px'
             }}>
-              Searching for Online Rival
+              Finding a worthy rival...
             </h2>
 
             {/* Status text */}
@@ -622,10 +651,11 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                 style={{
                   padding: '12px 32px',
                   fontSize: '0.95rem',
-                  fontWeight: '700'
+                  fontWeight: '700',
+                  letterSpacing: '0.5px'
                 }}
               >
-                <X size={16} /> Cancel Search
+                <X size={16} /> CANCEL SEARCH
               </button>
             </div>
           </>
@@ -684,8 +714,19 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                 <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#fff', wordBreak: 'break-word' }}>
                   {myName}
                 </div>
-                <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
-                  YOU
+                <span style={{
+                  background: rankMeta.bg,
+                  color: rankMeta.color,
+                  border: `1px solid ${rankMeta.border}`,
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontSize: '0.72rem',
+                  fontWeight: '800',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {rankMeta.badge} {userRank}
                 </span>
               </div>
 
@@ -729,9 +770,26 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                 <div style={{ fontWeight: '800', fontSize: '0.95rem', color: '#fff', wordBreak: 'break-word' }}>
                   {oppName}
                 </div>
-                <span className="badge badge-emerald" style={{ fontSize: '0.7rem' }}>
-                  ONLINE
-                </span>
+                {matchedOpponent?.rank ? (
+                  <span style={{
+                    background: getRankMeta(matchedOpponent.rank).bg,
+                    color: getRankMeta(matchedOpponent.rank).color,
+                    border: `1px solid ${getRankMeta(matchedOpponent.rank).border}`,
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    fontSize: '0.72rem',
+                    fontWeight: '800',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    {getRankMeta(matchedOpponent.rank).badge} {matchedOpponent.rank}
+                  </span>
+                ) : (
+                  <span className="badge badge-emerald" style={{ fontSize: '0.7rem' }}>
+                    ONLINE
+                  </span>
+                )}
               </div>
             </div>
 

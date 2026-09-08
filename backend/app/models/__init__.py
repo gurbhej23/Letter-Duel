@@ -5,8 +5,9 @@ from app.models.game import Game
 from app.models.guess import Guess
 from app.models.chat import ChatMessage
 from app.models.tournament import Tournament, TournamentParticipant, TournamentMatch
+from app.models.coin_transaction import CoinTransaction
 
 __all__ = [
     "User", "Friendship", "Room", "Game", "Guess", "ChatMessage",
-    "Tournament", "TournamentParticipant", "TournamentMatch"
+    "Tournament", "TournamentParticipant", "TournamentMatch", "CoinTransaction"
 ]

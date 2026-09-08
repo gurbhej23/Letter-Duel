@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSound } from '../context/SoundContext';
 import { X, Trophy, Flame, Medal, Award } from 'lucide-react';
+import { getRankMeta } from '../utils/rankUtils';
 
 export default function LeaderboardModal({ isOpen, onClose }) {
   const { playClick } = useSound();
@@ -69,7 +70,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
             <div>Player</div>
             <div style={{ textAlign: 'center' }}>Wins</div>
             <div className="leaderboard-col-winrate" style={{ textAlign: 'center' }}>Win %</div>
-            <div style={{ textAlign: 'right' }}>XP</div>
+            <div style={{ textAlign: 'right' }}>Competitive Rank</div>
           </div>
 
           <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
@@ -77,7 +78,7 @@ export default function LeaderboardModal({ isOpen, onClose }) {
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 Loading rankings...
               </div>
-            ) : leaders.length === 0 || leaders.every(l => (l.wins === 0 && l.xp === 0)) ? (
+            ) : leaders.length === 0 || leaders.every(l => (l.wins === 0 && (!l.player_rank || l.player_rank === 'Bronze III'))) ? (
               <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                 No ranked players yet. Be the first to win!
               </div>
@@ -86,6 +87,8 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                 const isGold = player.rank === 1;
                 const isSilver = player.rank === 2;
                 const isBronze = player.rank === 3;
+                const pRank = player.player_rank || 'Bronze III';
+                const rankMeta = getRankMeta(pRank);
 
                 return (
                   <div 
@@ -141,9 +144,22 @@ export default function LeaderboardModal({ isOpen, onClose }) {
                       {player.win_rate}%
                     </div>
 
-                    {/* XP */}
-                    <div style={{ textAlign: 'right', fontWeight: '800', color: 'var(--neon-cyan)' }}>
-                      {player.xp}
+                    {/* Competitive Rank Badge */}
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{
+                        background: rankMeta.bg,
+                        color: rankMeta.color,
+                        border: `1px solid ${rankMeta.border}`,
+                        fontSize: '0.74rem',
+                        fontWeight: '800',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        {rankMeta.badge} {pRank}
+                      </span>
                     </div>
                   </div>
                 );

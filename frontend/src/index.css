@@ -378,6 +378,191 @@ input, select, textarea, button {
   box-shadow: 0 1px 0 #0092a8, 0 3px 10px rgba(0, 242, 254, 0.4) !important;
 }
 
+.btn-3d-danger {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease, background 0.25s ease;
+  background: linear-gradient(135deg, #ff2a6d 0%, #d81159 100%) !important;
+  color: #fff !important;
+  border: 1px solid #ff2a6d !important;
+  box-shadow: 0 5px 0 #990033, 0 10px 24px rgba(255, 42, 109, 0.4) !important;
+  user-select: none;
+}
+
+.btn-3d-danger:hover:not(:disabled) {
+  transform: translateY(-2px) translateZ(4px);
+  box-shadow: 0 7px 0 #990033, 0 14px 28px rgba(255, 42, 109, 0.6) !important;
+}
+
+.btn-3d-danger:active:not(:disabled) {
+  transform: translateY(4px) translateZ(-4px) scale(0.97) !important;
+  box-shadow: 0 1px 0 #990033, 0 3px 10px rgba(255, 42, 109, 0.4) !important;
+}
+
+/* Leave Match Confirmation Modal Animations */
+.leave-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(5, 8, 16, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: leaveOverlayFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes leaveOverlayFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+}
+
+.leave-modal-card {
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid rgba(255, 42, 109, 0.75);
+  background: linear-gradient(180deg, #131929 0%, #0d121f 100%);
+  border-radius: var(--radius-lg);
+  padding: clamp(24px, 4vw, 36px);
+  position: relative;
+  box-shadow: 0 0 50px rgba(255, 42, 109, 0.4), 0 25px 60px rgba(0, 0, 0, 0.85);
+  animation: leaveModalSpringIn 0.4s cubic-bezier(0.34, 1.45, 0.64, 1) forwards, leaveModalBreathe 3s ease-in-out infinite alternate;
+  overflow: hidden;
+}
+
+.leave-modal-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ff2a6d, #fff, #ff2a6d, transparent);
+  animation: leaveBeamShimmer 2.5s infinite;
+}
+
+@keyframes leaveBeamShimmer {
+  0% { left: -100%; }
+  50%, 100% { left: 100%; }
+}
+
+@keyframes leaveModalSpringIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(24px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0px);
+  }
+}
+
+@keyframes leaveModalBreathe {
+  0% {
+    box-shadow: 0 0 35px rgba(255, 42, 109, 0.3), 0 20px 50px rgba(0, 0, 0, 0.8);
+    border-color: rgba(255, 42, 109, 0.65);
+  }
+  100% {
+    box-shadow: 0 0 65px rgba(255, 42, 109, 0.6), 0 25px 65px rgba(0, 0, 0, 0.9);
+    border-color: rgba(255, 42, 109, 1);
+  }
+}
+
+.leave-warning-badge {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255, 42, 109, 0.28), rgba(255, 42, 109, 0.08));
+  border: 2px solid rgba(255, 42, 109, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px auto;
+  position: relative;
+  box-shadow: 0 0 25px rgba(255, 42, 109, 0.45);
+  animation: leaveIconPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes leaveIconPop {
+  0% { transform: scale(0.4) rotate(-15deg); opacity: 0; }
+  70% { transform: scale(1.15) rotate(5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.leave-warning-badge::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 42, 109, 0.6);
+  animation: leavePulseRing 1.8s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+  pointer-events: none;
+}
+
+@keyframes leavePulseRing {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.leave-modal-title {
+  font-family: var(--font-display);
+  font-size: 1.38rem;
+  font-weight: 900;
+  margin-bottom: 10px;
+  color: #fff;
+  letter-spacing: 0.5px;
+  animation: leaveItemFade 0.35s ease 0.08s both;
+}
+
+.leave-modal-desc {
+  color: var(--text-secondary);
+  font-size: 0.93rem;
+  margin-bottom: 24px;
+  line-height: 1.55;
+  animation: leaveItemFade 0.35s ease 0.12s both;
+}
+
+.leave-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  animation: leaveItemFade 0.35s ease 0.16s both;
+}
+
+@keyframes leaveItemFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes fadeScaleIn {
   0% {
     opacity: 0;

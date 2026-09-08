@@ -42,6 +42,14 @@ export default function AuthModal({ isOpen, onClose }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [ripples, setRipples] = useState([]);
+  const [welcomeBonusData, setWelcomeBonusData] = useState(null);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setWelcomeBonusData(null);
+      setError('');
+    }
+  }, [isOpen]);
 
   const handleBtn3DClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -120,7 +128,14 @@ export default function AuthModal({ isOpen, onClose }) {
 
       login(data.access_token, data.user, rememberMe);
       playHit();
-      onClose();
+      if (data.welcome_bonus || (isReg && data.user?.welcome_bonus_claimed)) {
+        setWelcomeBonusData({
+          username: data.user?.username || 'Duelist',
+          coins: 100
+        });
+      } else {
+        onClose();
+      }
     } catch (err) {
       playMiss();
       setError(err.message || 'Connection error. Please try again.');
@@ -203,17 +218,17 @@ export default function AuthModal({ isOpen, onClose }) {
             </div>
             <div>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', fontWeight: '800', lineHeight: 1.2 }}>
-                {isRegister ? 'Join Letter Duel' : 'Welcome Back'}
+                {welcomeBonusData ? 'Welcome Bonus' : (isRegister ? 'Join Letter Duel' : 'Welcome Back')}
               </h2>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-                {isRegister ? 'Create your duelist profile to compete' : 'Sign in to duel, rank up & invite friends'}
+                {welcomeBonusData ? 'Your duelist journey begins now' : (isRegister ? 'Create your duelist profile to compete' : 'Sign in to duel, rank up & invite friends')}
               </p>
             </div>
           </div>
           <button 
             className="btn btn-secondary btn-icon" 
             style={{ width: '38px', height: '38px', minWidth: '38px', minHeight: '38px' }}
-            onClick={() => { playClick(); onClose(); }}
+            onClick={() => { playClick(); setWelcomeBonusData(null); onClose(); }}
             title="Close"
             aria-label="Close"
           >
@@ -221,16 +236,79 @@ export default function AuthModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          background: 'rgba(0, 0, 0, 0.35)',
-          padding: '4px',
-          borderRadius: 'var(--radius-md)',
-          marginBottom: '20px',
-          border: '1px solid rgba(255, 255, 255, 0.06)'
-        }}>
+        {welcomeBonusData ? (
+          <div style={{ textAlign: 'center', padding: '16px 8px 8px 8px', animation: 'fadeScaleIn 0.4s ease-out' }}>
+            <div style={{
+              width: '84px',
+              height: '84px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #ffb300 0%, #ff5e62 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2.8rem',
+              margin: '0 auto 18px auto',
+              boxShadow: '0 0 35px rgba(255, 179, 0, 0.6)',
+              animation: 'radarCenterPulse 2s ease-in-out infinite'
+            }}>
+              🪙
+            </div>
+
+            <h2 style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.75rem',
+              fontWeight: '900',
+              marginBottom: '8px',
+              color: '#fff'
+            }}>
+              Welcome to Letter Duel!
+            </h2>
+
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.25), rgba(255, 107, 0, 0.25))',
+              border: '1px solid #ffb300',
+              color: '#ffc107',
+              fontWeight: '900',
+              fontSize: '1.3rem',
+              padding: '8px 24px',
+              borderRadius: '30px',
+              marginBottom: '16px',
+              boxShadow: '0 0 20px rgba(255, 179, 0, 0.3)'
+            }}>
+              <span>+100 Duel Coins</span>
+            </div>
+
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.94rem', lineHeight: 1.6, marginBottom: '24px' }}>
+              Your starter coins have been deposited to your account. Use your coins to enter Rookie duels, unlock higher arenas, and rise up the competitive ranks!
+            </p>
+
+            <button
+              className="btn btn-primary glow-cyan btn-3d"
+              style={{ width: '100%', padding: '14px', fontSize: '1.05rem', fontWeight: '800' }}
+              onClick={() => {
+                playClick();
+                setWelcomeBonusData(null);
+                onClose();
+              }}
+            >
+              CLAIM & ENTER ARENA ⚔️
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Tab Switcher */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              background: 'rgba(0, 0, 0, 0.35)',
+              padding: '4px',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.06)'
+            }}>
           <button
             type="button"
             className="btn"
@@ -588,6 +666,8 @@ export default function AuthModal({ isOpen, onClose }) {
             )}
           </button>
         </form>
+          </>
+        )}
       </div>
     </div>
   );

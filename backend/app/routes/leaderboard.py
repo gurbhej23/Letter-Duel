@@ -14,9 +14,22 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
         db.query(User)
         .filter(
             ~User.email.ilike("%@letterduel.gg"),
-            (User.wins > 0) | (User.xp > 0)
+            ~User.email.ilike("%@test.com"),
+            ~User.email.ilike("%@example.com"),
+            ~User.username.ilike("%test%"),
+            ~User.username.ilike("%bot%"),
+            ~User.username.ilike("%tourney%"),
+            ~User.username.ilike("%forfeit%"),
+            ~User.username.ilike("%flowuser%"),
+            ~User.username.ilike("%duelist_%"),
+            ~User.username.ilike("%poor_%"),
+            ~User.username.ilike("%guest_%"),
+            ~User.username.ilike("%user_%"),
+            ~User.username.ilike("%winner_%"),
+            ~User.username.ilike("%loser_%"),
+            User.wins > 0
         )
-        .order_by(desc(User.xp), desc(User.wins))
+        .order_by(desc(User.rating), desc(User.wins))
         .limit(limit)
         .all()
     )
@@ -35,6 +48,7 @@ def get_leaderboard(limit: int = 50, db: Session = Depends(get_db)):
             win_rate=win_rate,
             current_streak=user.current_streak,
             best_streak=user.best_streak,
-            xp=user.xp
+            xp=user.xp,
+            player_rank=user.rank or "Bronze III"
         ))
     return entries

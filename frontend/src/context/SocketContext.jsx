@@ -329,8 +329,13 @@ export function SocketProvider({ children }) {
     }
     intentionalCloseRef.current = true;
     if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+      // Give websocket send buffer 50ms before closing socket
+      setTimeout(() => {
+        if (wsRef.current) {
+          try { wsRef.current.close(); } catch {}
+          wsRef.current = null;
+        }
+      }, 50);
     }
 
     // Call REST endpoint to ensure DB room and queue are cleared
@@ -362,8 +367,16 @@ export function SocketProvider({ children }) {
 
   // Clean up and leave room immediately on logout (when token becomes null)
   useEffect(() => {
-    if (!token && (connected || wsRef.current || currentRoomCode || activeRoomRef.current)) {
-      leaveRoom(true);
+    if (!token) {
+      if (connected || wsRef.current || currentRoomCode || activeRoomRef.current) {
+        leaveRoom(true);
+      }
+      activeRoomRef.current = null;
+      setCurrentRoomCode(null);
+      setGameState(null);
+      sessionStorage.removeItem('letter_duel_room_code');
+      localStorage.removeItem('letter_duel_room_code');
+      sessionStorage.removeItem('letter_duel_view');
     }
   }, [token, connected, currentRoomCode, leaveRoom]);
 

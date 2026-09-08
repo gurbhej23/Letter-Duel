@@ -8,6 +8,7 @@ from app.schemas.room import RoomCreate, RoomJoin, RoomResponse, RoomLeave, Quic
 from app.auth.deps import get_current_user
 from app.game.room_manager import room_manager, RoomSession, ARENA_TIERS
 from app.game.engine import LetterDuelGame
+from app.game.ranks import is_rank_eligible
 import random
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
@@ -18,7 +19,7 @@ def create_room(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    entry_fee = room_in.entry_fee or 50
+    entry_fee = room_in.entry_fee or 10
     if entry_fee not in ARENA_TIERS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -26,8 +27,8 @@ def create_room(
         )
 
     tier_info = ARENA_TIERS[entry_fee]
-    user_coins = current_user.coins if current_user.coins is not None else 500
-    user_level = current_user.level or 1
+    user_coins = current_user.coins if current_user.coins is not None else 100
+    user_rank = current_user.rank or "Bronze III"
 
     if user_coins < entry_fee:
         raise HTTPException(
@@ -35,10 +36,11 @@ def create_room(
             detail=f"Insufficient coins ({user_coins} 🪙). You need {entry_fee} 🪙 to enter this arena."
         )
 
-    if user_level < tier_info["min_level"]:
+    min_rank = tier_info.get("min_rank", "Bronze III")
+    if not is_rank_eligible(user_rank, min_rank):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"This {tier_info['name']} requires Level {tier_info['min_level']} to unlock (Current: Lv. {user_level}). Keep dueling to level up!"
+            detail=f"Reach {min_rank} rank to unlock this arena. (Your Rank: {user_rank})"
         )
 
     # Generate 6-char unique room code for PRIVATE room
@@ -75,7 +77,7 @@ async def quickmatch(
     """
     from app.websocket.handler import send_sync_states, broadcast_to_room
 
-    chosen_fee = 50
+    chosen_fee = 10
     if req and req.entry_fee:
         chosen_fee = req.entry_fee
     elif entry_fee:
@@ -88,8 +90,9 @@ async def quickmatch(
         )
 
     tier_info = ARENA_TIERS[chosen_fee]
-    user_coins = current_user.coins if current_user.coins is not None else 500
-    user_level = current_user.level or 1
+    user_coins = current_user.coins if current_user.coins is not None else 100
+    user_rank = current_user.rank or "Bronze III"
+    user_rating = current_user.rating or 800
 
     if user_coins < chosen_fee:
         raise HTTPException(
@@ -97,10 +100,11 @@ async def quickmatch(
             detail=f"Insufficient coins ({user_coins} 🪙). You need {chosen_fee} 🪙 to queue in this arena."
         )
 
-    if user_level < tier_info["min_level"]:
+    min_rank = tier_info.get("min_rank", "Bronze III")
+    if not is_rank_eligible(user_rank, min_rank):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"This {tier_info['name']} requires Level {tier_info['min_level']} to unlock (Current: Lv. {user_level}). Keep dueling to level up!"
+            detail=f"Reach {min_rank} rank to unlock this arena. (Your Rank: {user_rank})"
         )
 
     # 1. Clean up any stale or abandoned rooms for this user if not in active in-memory manager
@@ -161,7 +165,11 @@ async def quickmatch(
             await room_manager.remove_from_quickmatch_queue(current_user.id)
 
     # 2. Check if an opponent is waiting in the queue for this entry_fee tier
-    opponent_entry = await room_manager.pop_quickmatch_opponent(excluding_user_id=current_user.id, entry_fee=chosen_fee)
+    opponent_entry = await room_manager.pop_quickmatch_opponent(
+        excluding_user_id=current_user.id,
+        entry_fee=chosen_fee,
+        user_rating=user_rating
+    )
     if opponent_entry:
         target_code = opponent_entry["room_code"]
         target_room = db.query(Room).filter(Room.room_code == target_code).first()
@@ -217,7 +225,8 @@ async def quickmatch(
         username=current_user.username,
         avatar=current_user.avatar or "avatar-1",
         room_code=code,
-        entry_fee=chosen_fee
+        entry_fee=chosen_fee,
+        rating=user_rating
     )
 
     return {
@@ -373,11 +382,11 @@ def join_room(
             detail="This room has already concluded or expired."
         )
 
-    # Validate coins and level for joining guest
-    room_fee = getattr(db_room, "entry_fee", 50) or 50
-    user_coins = current_user.coins if current_user.coins is not None else 500
-    user_level = current_user.level or 1
-    tier_info = ARENA_TIERS.get(room_fee, {"min_level": 1, "name": "Duel Arena"})
+    # Validate coins and rank for joining guest
+    room_fee = getattr(db_room, "entry_fee", 10) or 10
+    user_coins = current_user.coins if current_user.coins is not None else 100
+    user_rank = current_user.rank or "Bronze III"
+    tier_info = ARENA_TIERS.get(room_fee, {"min_rank": "Bronze III", "name": "Duel Arena"})
 
     if user_coins < room_fee:
         raise HTTPException(
@@ -385,10 +394,11 @@ def join_room(
             detail=f"Insufficient coins ({user_coins} 🪙). Room stake is {room_fee} 🪙."
         )
 
-    if user_level < tier_info["min_level"]:
+    min_rank = tier_info.get("min_rank", "Bronze III")
+    if not is_rank_eligible(user_rank, min_rank):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"This {tier_info['name']} requires Level {tier_info['min_level']} to join (Your Level: {user_level}). Keep dueling to level up!"
+            detail=f"Reach {min_rank} rank to join this arena. (Your Rank: {user_rank})"
         )
 
     db_room.player2_id = current_user.id

@@ -100,7 +100,7 @@ function MainApp() {
 
   // Determine view
   let currentView = 'landing';
-  if (currentRoomCode) {
+  if (user && currentRoomCode) {
     const savedView = sessionStorage.getItem('letter_duel_view');
     if (gameState?.state === 'PLAYING' || gameState?.state === 'GAME_OVER') {
       currentView = 'arena';
@@ -111,11 +111,11 @@ function MainApp() {
     } else {
       currentView = 'lobby';
     }
-  } else if (tournamentOpen) {
+  } else if (user && tournamentOpen) {
     currentView = 'tournament';
   }
 
-  const isWordSelectOpen = currentRoomCode && gameState?.state === 'WORD_SELECTION';
+  const isWordSelectOpen = Boolean(user && currentRoomCode && gameState?.state === 'WORD_SELECTION');
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>

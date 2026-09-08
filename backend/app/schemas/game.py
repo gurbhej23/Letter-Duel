@@ -14,6 +14,7 @@ class LeaderboardEntry(BaseModel):
     current_streak: int
     best_streak: int
     xp: int
+    player_rank: Optional[str] = "Bronze III"
 
 class MatchHistoryEntry(BaseModel):
     id: int

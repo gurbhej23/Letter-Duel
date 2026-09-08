@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
-import { X, User, Flame, Trophy, Swords, Calendar, Clock } from 'lucide-react';
+import { X, User, Flame, Trophy, Swords, Calendar, Clock, Award } from 'lucide-react';
+import { getRankMeta } from '../utils/rankUtils';
 
 const AVATARS = ['avatar-1', 'avatar-2', 'avatar-3', 'avatar-4', 'avatar-5', 'avatar-6'];
 
@@ -112,12 +113,10 @@ export default function ProfileModal({ isOpen, onClose }) {
 
   if (!isOpen || !user) return null;
 
-  const totalGames = user.wins + user.losses;
-  const winRate = totalGames > 0 ? Math.round((user.wins / totalGames) * 100) : 0;
-  const userLevel = user.level || 1;
-  const userXp = user.xp || 0;
-  const currentLevelXp = userXp % 200;
-  const xpPercent = Math.min(100, Math.round((currentLevelXp / 200) * 100));
+  const totalGames = (user.wins || 0) + (user.losses || 0);
+  const winRate = totalGames > 0 ? Math.round(((user.wins || 0) / totalGames) * 100) : 0;
+  const userRank = user.rank || 'Bronze III';
+  const rankMeta = getRankMeta(userRank);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -139,31 +138,41 @@ export default function ProfileModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* Level & Coins Card */}
+        {/* Competitive Rank & Balance Card */}
         <div style={{
           background: 'linear-gradient(135deg, rgba(142, 45, 226, 0.15) 0%, rgba(0, 242, 254, 0.12) 100%)',
-          border: '1px solid rgba(0, 242, 254, 0.25)',
+          border: `1px solid ${rankMeta.border}`,
           borderRadius: 'var(--radius-lg)',
           padding: '16px',
           marginBottom: '18px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+          boxShadow: `0 8px 24px rgba(0,0,0,0.2)`
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
-                background: 'linear-gradient(135deg, #8e2de2, #4a00e0)',
-                color: '#fff',
+                background: rankMeta.bg,
+                color: rankMeta.color,
+                border: `1px solid ${rankMeta.border}`,
                 fontWeight: '900',
-                fontSize: '0.9rem',
-                padding: '4px 12px',
+                fontSize: '1.05rem',
+                padding: '6px 14px',
                 borderRadius: '12px',
-                boxShadow: '0 0 12px rgba(142, 45, 226, 0.4)'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: `0 0 14px ${rankMeta.color}30`
               }}>
-                LEVEL {userLevel}
+                <span>{rankMeta.badge}</span>
+                <span>{userRank}</span>
               </div>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: '600' }}>
-                Duelist Rank
-              </span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '800' }}>
+                  Competitive Duelist
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  Best: {user.highest_rank || userRank}
+                </div>
+              </div>
             </div>
             <div style={{
               display: 'flex',
@@ -178,35 +187,12 @@ export default function ProfileModal({ isOpen, onClose }) {
               color: '#ffc107'
             }}>
               <span>🪙</span>
-              <span>{user.coins ?? 500} Coins</span>
-            </div>
-          </div>
-
-          {/* XP Progress Bar */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-              <span>XP Progress to Level {userLevel + 1}</span>
-              <span style={{ color: '#00f2fe', fontWeight: '700' }}>{currentLevelXp} / 200 XP ({xpPercent}%)</span>
-            </div>
-            <div style={{
-              width: '100%',
-              height: '10px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              borderRadius: '6px',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                width: `${xpPercent}%`,
-                height: '100%',
-                background: 'linear-gradient(90deg, #00f2fe, #8e2de2)',
-                borderRadius: '6px',
-                transition: 'width 0.4s ease'
-              }} />
+              <span>{user.coins ?? 100} Coins</span>
             </div>
           </div>
 
           {/* Daily Refill Action */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', flexWrap: 'wrap', gap: '8px' }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               Claim +200 free coins daily (or immediately if low on coins):
             </span>
@@ -234,25 +220,29 @@ export default function ProfileModal({ isOpen, onClose }) {
         {/* Stats Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 100px), 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 95px), 1fr))',
           gap: '10px',
           marginBottom: '20px'
         }}>
           <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: 'var(--radius-md)', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Wins</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--neon-emerald)' }}>{user.wins}</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Wins</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--neon-emerald)' }}>{user.wins || 0}</div>
           </div>
           <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: 'var(--radius-md)', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Win Rate</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--neon-cyan)' }}>{winRate}%</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Losses</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--neon-rose)' }}>{user.losses || 0}</div>
           </div>
           <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: 'var(--radius-md)', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Streak</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--neon-amber)' }}>{user.current_streak} 🔥</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Streak</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--neon-amber)' }}>{user.current_streak || 0} 🔥</div>
           </div>
           <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: 'var(--radius-md)', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total XP</div>
-            <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#a78bfa' }}>{user.xp}</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Win Rate</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--neon-cyan)' }}>{winRate}%</div>
+          </div>
+          <div style={{ background: 'var(--bg-surface)', padding: '12px', borderRadius: 'var(--radius-md)', textAlign: 'center', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Matches</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: '800', color: '#a78bfa' }}>{totalGames}</div>
           </div>
         </div>
 

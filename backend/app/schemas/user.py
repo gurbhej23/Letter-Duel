@@ -24,8 +24,12 @@ class UserResponse(BaseModel):
     username: str
     email: str
     avatar: str
-    coins: int = 500
-    level: int = 1
+    coins: int = 100
+    level: int = 1  # Retained for internal backward compatibility
+    rating: int = 800
+    rank: str = "Bronze III"
+    highest_rank: str = "Bronze III"
+    welcome_bonus_claimed: bool = True
     xp: int = 0
     wins: int
     losses: int
@@ -42,3 +46,4 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+    welcome_bonus: Optional[bool] = False

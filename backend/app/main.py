@@ -66,6 +66,34 @@ try:
 except Exception:
     pass
 
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN rating INTEGER DEFAULT 800"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN rank VARCHAR(30) DEFAULT 'Bronze III'"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN highest_rank VARCHAR(30) DEFAULT 'Bronze III'"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN welcome_bonus_claimed BOOLEAN DEFAULT 1"))
+        conn.commit()
+except Exception:
+    pass
+
 # Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,

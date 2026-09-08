@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart } from 'lucide-react';
+import { getRankMeta } from '../utils/rankUtils';
 
 const ALPHABET_ROWS = [
   ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
@@ -679,38 +680,111 @@ export default function GameArena({ roomCode, onLeaveGame }) {
 
             <h2 style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '2rem',
+              fontSize: '2.2rem',
               fontWeight: '900',
               color: isWinner ? 'var(--neon-emerald)' : 'var(--neon-rose)',
-              marginBottom: '6px'
+              marginBottom: '4px',
+              letterSpacing: '1px'
             }}>
-              {isWinner ? '🏆 VICTORY!' : 'GAME OVER'}
+              {isWinner ? '🏆 VICTORY' : 'DEFEAT'}
             </h2>
 
-            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '20px' }}>
+            <div style={{
+              fontWeight: '800',
+              fontSize: '1.15rem',
+              color: isWinner ? '#00e676' : '#ff4d6d',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}>
+              <span>🪙</span>
+              <span>
+                {isWinner
+                  ? `+${gameState.rewards?.winner_coins_won || gameState.entry_fee || 50} Duel Coins`
+                  : `-${gameState.rewards?.loser_coins_lost || gameState.entry_fee || 50} Duel Coins`}
+              </span>
+            </div>
+
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: '18px' }}>
               {gameState.win_reason?.includes('lifelines') || gameState.win_reason === 'TIMEOUT_DISQUALIFIED'
                 ? (isWinner ? `Opponent ran out of lifelines (missed 3 turn timers)!` : `You ran out of lifelines (missed 3 turn timers)!`)
                 : (isWinner ? 'You outwitted your opponent in the Letter Duel!' : `${opponent?.username} conquered the duel.`)}
             </p>
 
-            {/* Level Up Celebration Notification */}
-            {((isWinner && gameState.rewards?.winner_level_up) || (!isWinner && gameState.rewards?.loser_level_up)) && (
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(142, 45, 226, 0.25) 0%, rgba(0, 242, 254, 0.25) 100%)',
-                border: '1px solid var(--neon-cyan)',
-                borderRadius: 'var(--radius-md)',
-                padding: '12px',
-                marginBottom: '16px',
-                boxShadow: '0 0 16px rgba(0, 242, 254, 0.3)'
-              }}>
-                <div style={{ fontWeight: '900', color: '#00f2fe', fontSize: '1.1rem' }}>
-                  🎉 LEVEL UP! You reached Level {isWinner ? (gameState.rewards?.winner_level || (user?.level || 1) + 1) : (gameState.rewards?.loser_level || (user?.level || 1) + 1)}!
+            {/* Competitive Rank Progress Animation Box */}
+            {(() => {
+              const currentRank = isWinner 
+                ? (gameState.rewards?.winner_rank || user?.rank || 'Bronze III')
+                : (gameState.rewards?.loser_rank || user?.rank || 'Bronze III');
+              const ratingChange = isWinner
+                ? (gameState.rewards?.winner_rating_change ?? 25)
+                : (gameState.rewards?.loser_rating_change ?? -15);
+              const isPromoted = Boolean(gameState.rewards?.winner_promoted);
+              const streak = isWinner ? (gameState.rewards?.winner_streak || 1) : 0;
+              const meta = getRankMeta(currentRank);
+
+              return (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.4) 100%)',
+                  border: `1px solid ${isPromoted ? 'var(--neon-emerald)' : meta.border}`,
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px 16px',
+                  marginBottom: '16px',
+                  boxShadow: isPromoted ? '0 0 20px rgba(0, 230, 118, 0.3)' : `0 0 16px ${meta.color}20`,
+                  textAlign: 'center',
+                  animation: 'fadeScaleIn 0.5s ease-out'
+                }}>
+                  {isPromoted && (
+                    <div style={{
+                      background: 'linear-gradient(90deg, rgba(0, 230, 118, 0.2), rgba(0, 242, 254, 0.2))',
+                      color: 'var(--neon-emerald)',
+                      fontWeight: '900',
+                      fontSize: '0.85rem',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '10px',
+                      letterSpacing: '0.5px',
+                      boxShadow: '0 0 12px rgba(0, 230, 118, 0.3)'
+                    }}>
+                      🎉 RANK PROMOTION!
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '1.8rem' }}>{meta.badge}</span>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontWeight: '900', fontSize: '1.05rem', color: meta.color }}>
+                          {currentRank}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          Competitive Division
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: '900',
+                        fontSize: '1.1rem',
+                        color: ratingChange > 0 ? 'var(--neon-emerald)' : 'var(--neon-rose)'
+                      }}>
+                        {ratingChange > 0 ? `+${ratingChange}` : ratingChange} Rating
+                      </div>
+                      {streak > 1 && (
+                        <div style={{ fontSize: '0.75rem', color: '#ffb300', fontWeight: '800' }}>
+                          🔥 {streak} Win Streak!
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: '#ffc107', marginTop: '4px', fontWeight: '700' }}>
-                  +100 Bonus Coins Awarded 🪙
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Secret Words & Rewards Breakdown */}
             <div style={{
@@ -754,16 +828,10 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                   <span>🏆</span> {gameState.rewards?.pot || (gameState.entry_fee || 50) * 2} Coins
                 </span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Updated Balance:</span>
                 <span style={{ fontWeight: '800', color: '#00f2fe' }}>
                   🪙 {isWinner ? (gameState.rewards?.winner_coins ?? user?.coins) : (gameState.rewards?.loser_coins ?? user?.coins)} Coins
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>XP Earned:</span>
-                <span style={{ fontWeight: '800', color: 'var(--neon-amber)' }}>
-                  {isWinner ? '+100 XP 🌟' : '+25 XP'}
                 </span>
               </div>
             </div>

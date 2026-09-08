@@ -31,8 +31,12 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         email=clean_email,
         password_hash=hash_password(user_in.password),
         avatar=user_in.avatar or "avatar-1",
-        coins=500,
+        coins=100,  # 100 Duel Coins one-time welcome bonus
         level=1,
+        rating=800,
+        rank="Bronze III",
+        highest_rank="Bronze III",
+        welcome_bonus_claimed=True,
         xp=0,
         last_seen=datetime.datetime.utcnow()
     )
@@ -40,11 +44,28 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
+    # Server-authoritative ledger record for 100 Coins Welcome Bonus
+    from app.models.coin_transaction import CoinTransaction
+    welcome_tx = CoinTransaction(
+        user_id=user.id,
+        amount=100,
+        balance_after=100,
+        transaction_type="WELCOME_BONUS",
+        reference_id="registration"
+    )
+    db.add(welcome_tx)
+    db.commit()
+
     from app.routes.friends import touch_user_online
     touch_user_online(user.id)
 
     token = create_access_token({"sub": str(user.id)})
-    return Token(access_token=token, token_type="bearer", user=UserResponse.model_validate(user))
+    return Token(
+        access_token=token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+        welcome_bonus=True
+    )
 
 @router.post("/login", response_model=Token)
 def login(login_data: UserLogin, db: Session = Depends(get_db)):
