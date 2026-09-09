@@ -11,25 +11,25 @@ export default function ToastContainer() {
     <div className="toast-container">
       {toasts.map(t => {
         let borderClass = 'border-subtle';
-        let icon = <Info size={18} color="#00f2fe" />;
+        let icon = <Info size={18} className="toast-icon-primary" />;
         
         if (t.type === 'success') {
           borderClass = 'glow-cyan';
-          icon = <CheckCircle2 size={18} color="#00e676" />;
+          icon = <CheckCircle2 size={18} className="toast-icon-success" />;
         } else if (t.type === 'warning') {
-          icon = <AlertTriangle size={18} color="#ffb300" />;
+          icon = <AlertTriangle size={18} className="toast-icon-warning" />;
         } else if (t.type === 'danger') {
           borderClass = 'glow-rose';
-          icon = <AlertTriangle size={18} color="#ff2a6d" />;
+          icon = <AlertTriangle size={18} className="toast-icon-danger" />;
         } else if (t.type === 'primary') {
           borderClass = 'glow-cyan';
-          icon = <Sparkles size={18} color="#00f2fe" />;
+          icon = <Sparkles size={18} className="toast-icon-primary" />;
         }
 
         return (
           <div key={t.id} className={`toast ${borderClass}`}>
             {icon}
-            <div>{t.message}</div>
+            <span>{t.message}</span>
           </div>
         );
       })}
