@@ -1,27 +1,38 @@
 import { useEffect } from 'react';
 
+let activeLocksCount = 0;
+let originalOverflow = '';
+let originalPaddingRight = '';
+
 /**
  * Custom hook to lock body scrolling when a modal, overlay, or dialog is open.
- * Restores original body overflow and padding on unmount or when isOpen is false.
+ * Uses a global reference counter so multiple modals or React StrictMode
+ * never corrupt original body styles or leave the page permanently locked.
  */
-export function useBodyScrollLock(isOpen = true) {
+export function useBodyScrollLock(isOpen = false) {
   useEffect(() => {
     if (!isOpen) return;
 
-    const originalOverflow = document.body.style.overflow;
-    const originalPaddingRight = document.body.style.paddingRight;
+    if (activeLocksCount === 0) {
+      originalOverflow = document.body.style.overflow;
+      originalPaddingRight = document.body.style.paddingRight;
 
-    // Prevent layout shift from scrollbar disappearing
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+      }
+      document.body.style.overflow = 'hidden';
     }
-
-    document.body.style.overflow = 'hidden';
+    activeLocksCount += 1;
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.paddingRight = originalPaddingRight;
+      activeLocksCount = Math.max(0, activeLocksCount - 1);
+      if (activeLocksCount === 0) {
+        document.body.style.overflow = originalOverflow || '';
+        document.body.style.paddingRight = originalPaddingRight || '';
+        originalOverflow = '';
+        originalPaddingRight = '';
+      }
     };
   }, [isOpen]);
 }

@@ -148,6 +148,13 @@ function MainApp() {
   }
 
   const isWordSelectOpen = Boolean(user && currentRoomCode && gameState?.state === 'WORD_SELECTION');
+  const anyModalOpen = Boolean(authOpen || tutorialOpen || leaderboardOpen || friendsOpen || profileOpen || isWordSelectOpen || matchmakingOpen || activeMatch?.active);
+  useEffect(() => {
+    if (!anyModalOpen) {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
+  }, [anyModalOpen]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
