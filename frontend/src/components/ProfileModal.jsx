@@ -166,10 +166,10 @@ export default function ProfileModal({ isOpen, onClose }) {
                 <span>{userRank}</span>
               </div>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '0.85rem', color: '#fff', fontWeight: '800' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '800' }}>
                   Competitive Duelist
                 </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
                   Best: {user.highest_rank || userRank}
                 </div>
               </div>
@@ -184,7 +184,7 @@ export default function ProfileModal({ isOpen, onClose }) {
               borderRadius: '20px',
               fontSize: '1rem',
               fontWeight: '800',
-              color: '#ffc107'
+              color: 'var(--neon-amber)'
             }}>
               <span>🪙</span>
               <span>{user.coins ?? 100} Coins</span>
@@ -192,8 +192,8 @@ export default function ProfileModal({ isOpen, onClose }) {
           </div>
 
           {/* Daily Refill Action */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', flexWrap: 'wrap', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap', gap: '8px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
               Claim +200 free coins daily (or immediately if low on coins):
             </span>
             <button
@@ -202,9 +202,11 @@ export default function ProfileModal({ isOpen, onClose }) {
               disabled={claimingDaily}
               style={{
                 borderColor: 'rgba(255, 179, 0, 0.5)',
-                color: '#ffc107',
-                fontWeight: '700',
-                background: 'rgba(255, 179, 0, 0.1)'
+                color: 'var(--neon-amber)',
+                fontWeight: '800',
+                background: 'rgba(255, 179, 0, 0.12)',
+                boxShadow: '0 2px 8px rgba(255, 179, 0, 0.15)',
+                transition: 'all 0.2s ease'
               }}
             >
               {claimingDaily ? 'Claiming...' : '🎁 Claim Daily Bonus'}

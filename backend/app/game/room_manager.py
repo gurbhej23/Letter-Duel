@@ -24,6 +24,14 @@ ARENA_TIERS: Dict[int, dict] = {
     250: {"min_rank": "Platinum III", "min_level": 1, "name": "Champion Duel", "pot": 500, "badge": "👑"}
 }
 
+class UserMatchState:
+    OFFLINE = "OFFLINE"
+    AVAILABLE = "AVAILABLE"
+    SEARCHING = "SEARCHING"
+    IN_ROOM = "IN_ROOM"
+    PLAYING = "PLAYING"
+    RECONNECTING = "RECONNECTING"
+
 class RoomSession:
     def __init__(self, room_code: str, allow_custom_words: bool = True, is_private: bool = True, entry_fee: int = 10):
         self.room_code = room_code
@@ -32,12 +40,17 @@ class RoomSession:
         self.entry_fee = entry_fee
         self.game: Optional[LetterDuelGame] = None
         
+        # Bot match flags
+        self.is_bot_opponent: bool = False
+        self.bot_difficulty: str = "normal"
+
         # Connected WebSockets: player_id -> WebSocket
         self.connections: Dict[int, WebSocket] = {}
         
         # Disconnect timers: player_id -> asyncio.Task
         self.disconnect_tasks: Dict[int, asyncio.Task] = {}
         self.disconnect_start_time: Dict[int, float] = {}
+        self.disconnect_deadlines: Dict[int, float] = {}
 
         # Turn timer: 1 minute (60s) per guess
         self.turn_timer_task: Optional[asyncio.Task] = None
@@ -55,9 +68,28 @@ class RoomSession:
 class RoomManager:
     def __init__(self):
         self.rooms: Dict[str, RoomSession] = {}
-        # Quickmatch queue: user_id -> {"user_id": user_id, "username": str, "avatar": str, "room_code": room_code, "entry_fee": int, "created_at": datetime, "status": str}
+        # Quickmatch queue: user_id -> dict
         self.quickmatch_queue: Dict[int, dict] = {}
+        # Authoritative user state tracking: user_id -> UserMatchState
+        self.user_states: Dict[int, str] = {}
+        # User active room tracking: user_id -> room_code
+        self.user_rooms: Dict[int, str] = {}
         self._lock = asyncio.Lock()
+
+    def get_user_state(self, user_id: int) -> str:
+        """Returns the current state of a user (defaults to AVAILABLE if online, else OFFLINE)."""
+        from app.game.presence import presence_manager
+        if not presence_manager.is_user_online(user_id):
+            return UserMatchState.OFFLINE
+        return self.user_states.get(user_id, UserMatchState.AVAILABLE)
+
+    def set_user_state(self, user_id: int, state: str, room_code: Optional[str] = None):
+        """Authoritatively update user state."""
+        self.user_states[user_id] = state
+        if room_code:
+            self.user_rooms[user_id] = room_code.upper()
+        elif state in (UserMatchState.AVAILABLE, UserMatchState.OFFLINE):
+            self.user_rooms.pop(user_id, None)
 
     def create_room(self, allow_custom_words: bool = True, is_private: bool = True, entry_fee: int = 50) -> str:
         code = generate_room_code()
@@ -82,6 +114,9 @@ class RoomManager:
 
     async def add_to_quickmatch_queue(self, user_id: int, username: str, avatar: str, room_code: str, entry_fee: int = 10, rating: int = 800):
         """Register a user who is actively waiting for an online opponent at a specific entry stake."""
+        from app.game.presence import presence_manager
+        presence_manager.touch_user(user_id)
+
         async with self._lock:
             self.quickmatch_queue[user_id] = {
                 "user_id": user_id,
@@ -93,24 +128,22 @@ class RoomManager:
                 "created_at": datetime.datetime.now(datetime.timezone.utc),
                 "status": "LOOKING_FOR_MATCH"
             }
-            logger.info(f"[Matchmaking] Player {username} (id: {user_id}, rating: {rating}) joined queue for {entry_fee} coins in room {room_code}. Queue size: {len(self.quickmatch_queue)}")
+            self.set_user_state(user_id, UserMatchState.SEARCHING, room_code)
+            logger.info(f"[Matchmaking] Player {username} (id: {user_id}, rating: {rating}) queued for {entry_fee} coins in room {room_code}. Queue size: {len(self.quickmatch_queue)}")
 
     async def pop_quickmatch_opponent(self, excluding_user_id: int, entry_fee: int = 10, user_rating: int = 800) -> Optional[dict]:
         """
-        Atomically find and pop the best waiting REAL online player in the same entry stake tier,
-        prioritizing closest hidden rating (MMR).
-        Strict requirements:
-        1. Must NOT be the current user.
-        2. Must match the requested entry_fee tier.
-        3. Must be actively connected / verified online in presence_manager.
-        4. Must NOT already be in an active playing duel.
-        5. Room must still exist in memory and be open.
+        Atomically find and pop the best waiting REAL online player in the same entry stake tier.
+        Guarantees:
+        1. Never matches user with themselves.
+        2. Never matches users currently PLAYING or IN_ROOM.
+        3. Allows a 15-second grace window for freshly queued users while their socket handshake completes.
+        4. Stale/offline entries are automatically purged.
         """
         from app.game.presence import presence_manager
 
         async with self._lock:
             now = datetime.datetime.now(datetime.timezone.utc)
-            # Purge stale entries (> 90 seconds or closed rooms)
             stale_uids = []
             for uid, item in list(self.quickmatch_queue.items()):
                 age = (now - item["created_at"]).total_seconds()
@@ -122,8 +155,10 @@ class RoomManager:
             for uid in stale_uids:
                 logger.info(f"[Matchmaking] Purged stale/offline queue entry for user {uid}")
                 self.quickmatch_queue.pop(uid, None)
+                if self.get_user_state(uid) == UserMatchState.SEARCHING:
+                    self.set_user_state(uid, UserMatchState.AVAILABLE)
 
-            # Find valid candidates matching the requested entry_fee
+            # Find valid candidates matching requested entry_fee
             candidates = []
             for uid, item in list(self.quickmatch_queue.items()):
                 if uid == excluding_user_id:
@@ -147,7 +182,9 @@ class RoomManager:
                 candidates.sort(key=lambda x: x[0])
                 best_uid = candidates[0][1]
                 popped = self.quickmatch_queue.pop(best_uid)
-                logger.info(f"[Matchmaking] Matched candidate {popped['username']} (id: {best_uid}, rating: {popped.get('rating', 800)}) at {entry_fee} coins with challenger {excluding_user_id} (rating: {user_rating})")
+                self.set_user_state(best_uid, UserMatchState.IN_ROOM, popped["room_code"])
+                self.set_user_state(excluding_user_id, UserMatchState.IN_ROOM, popped["room_code"])
+                logger.info(f"[Matchmaking] Matched candidate {popped['username']} (id: {best_uid}) at {entry_fee} coins with challenger {excluding_user_id}")
                 return popped
 
             return None
@@ -158,6 +195,8 @@ class RoomManager:
             removed = self.quickmatch_queue.pop(user_id, None)
             if removed:
                 logger.info(f"[Matchmaking] Removed user {user_id} from queue.")
+            if self.get_user_state(user_id) == UserMatchState.SEARCHING:
+                self.set_user_state(user_id, UserMatchState.AVAILABLE)
 
     def get_queue_count(self) -> int:
         """Return count of users actively searching for match."""

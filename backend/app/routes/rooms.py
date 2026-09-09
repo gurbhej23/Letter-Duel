@@ -1,4 +1,5 @@
 from typing import Optional, List
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -6,7 +7,7 @@ from app.models.user import User
 from app.models.room import Room
 from app.schemas.room import RoomCreate, RoomJoin, RoomResponse, RoomLeave, QuickmatchRequest
 from app.auth.deps import get_current_user
-from app.game.room_manager import room_manager, RoomSession, ARENA_TIERS
+from app.game.room_manager import room_manager, RoomSession, ARENA_TIERS, UserMatchState
 from app.game.engine import LetterDuelGame
 from app.game.ranks import is_rank_eligible
 import random
@@ -236,6 +237,126 @@ async def quickmatch(
         "message": f"Searching for an opponent in {tier_info['name']} ({chosen_fee} 🪙)..."
     }
 
+class BotMatchRequest(BaseModel):
+    entry_fee: Optional[int] = 10
+    difficulty: Optional[str] = "normal"  # easy, normal, hard
+
+@router.post("/bot")
+async def start_bot_match(
+    req: Optional[BotMatchRequest] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Start a 1v1 duel against a server-authoritative BOT participant.
+    """
+    from app.game.words import STANDARD_DICTIONARY
+    from app.game.definitions import get_word_definition
+
+    chosen_fee = (req.entry_fee if req and req.entry_fee else 10) or 10
+    difficulty = (req.difficulty if req and req.difficulty else "normal").lower()
+    if difficulty not in ("easy", "normal", "hard"):
+        difficulty = "normal"
+
+    if chosen_fee not in ARENA_TIERS:
+        chosen_fee = 10
+
+    tier_info = ARENA_TIERS[chosen_fee]
+    user_coins = current_user.coins if current_user.coins is not None else 100
+    user_rank = current_user.rank or "Bronze III"
+
+    if user_coins < chosen_fee:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Insufficient coins ({user_coins} 🪙). You need {chosen_fee} 🪙 to enter."
+        )
+
+    min_rank = tier_info.get("min_rank", "Bronze III")
+    if not is_rank_eligible(user_rank, min_rank):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Reach {min_rank} rank to unlock this arena. (Your Rank: {user_rank})"
+        )
+
+    # Clean up any existing queue entries for this user
+    await room_manager.remove_from_quickmatch_queue(current_user.id)
+
+    code = room_manager.create_room(allow_custom_words=True, is_private=False, entry_fee=chosen_fee)
+    
+    # Ensure Bot user exists in DB
+    bot_user = db.query(User).filter(User.id == 99999).first()
+    if not bot_user:
+        bot_user = User(
+            id=99999,
+            username="BOT",
+            email="bot@letterduel.internal",
+            password_hash="system_bot_disabled_login",
+            avatar="avatar-robot",
+            coins=10000,
+            rating=800,
+            rank="Bronze III"
+        )
+        db.add(bot_user)
+        db.commit()
+
+    db_room = Room(
+        room_code=code,
+        player1_id=current_user.id,
+        player2_id=99999,
+        status="READY",
+        is_private=False,
+        entry_fee=chosen_fee
+    )
+    db.add(db_room)
+    db.commit()
+    db.refresh(db_room)
+
+    session = room_manager.get_room(code)
+    if session:
+        session.is_bot_opponent = True
+        session.bot_difficulty = difficulty
+        bot_name = f"BOT ({difficulty.capitalize()})"
+        session.game = LetterDuelGame(
+            room_code=code,
+            player1_id=current_user.id,
+            player2_id=99999,
+            player1_username=current_user.username,
+            player2_username=bot_name,
+            player1_avatar=current_user.avatar or "avatar-1",
+            player2_avatar="avatar-robot",
+            allow_custom_words=True,
+            bot_difficulty=difficulty
+        )
+        session.game.is_bot_opponent = True
+        session.game.bot_difficulty = difficulty
+
+        # Pick random secret word for bot from standard words (5-9 letters)
+        valid_words = [w.upper() for w in STANDARD_DICTIONARY if 5 <= len(w) <= 9 and w.isalpha()]
+        bot_word = random.choice(valid_words) if valid_words else "DRAGON"
+        session.game.secret_words[99999] = bot_word
+        session.game.word_lengths[99999] = len(bot_word)
+        session.game.word_hints[99999] = get_word_definition(bot_word)
+
+        # Bot is immediately ready
+        session.game.ready_players.add(current_user.id)
+        session.game.ready_players.add(99999)
+        session.game.state = "WORD_SELECTION"
+        room_manager.set_user_state(current_user.id, UserMatchState.PLAYING, code)
+
+    return {
+        "matched": True,
+        "room_code": code,
+        "role": "player1",
+        "is_bot": True,
+        "difficulty": difficulty,
+        "opponent": {
+            "id": 99999,
+            "username": f"BOT ({difficulty.capitalize()})",
+            "avatar": "avatar-robot"
+        },
+        "message": f"Duel matched with BOT ({difficulty.capitalize()})! Choose your secret word."
+    }
+
 @router.post("/quickmatch/cancel")
 async def cancel_quickmatch(
     current_user: User = Depends(get_current_user),
@@ -244,21 +365,22 @@ async def cancel_quickmatch(
     """Cancel matchmaking search and clean up waiting room."""
     await room_manager.remove_from_quickmatch_queue(current_user.id)
 
-    waiting_room = (
+    waiting_rooms = (
         db.query(Room)
         .filter(
             Room.player1_id == current_user.id,
-            Room.player2_id.is_(None),
-            Room.status == "WAITING"
+            (Room.player2_id.is_(None) | (Room.player2_id == 99999)),
+            Room.status.in_(["WAITING", "READY"])
         )
-        .first()
+        .all()
     )
-    if waiting_room:
+    for waiting_room in waiting_rooms:
         code = waiting_room.room_code
         db.delete(waiting_room)
-        db.commit()
         room_manager.remove_room(code)
+    db.commit()
 
+    room_manager.set_user_state(current_user.id, UserMatchState.AVAILABLE)
     return {"status": "cancelled", "message": "Matchmaking search cancelled."}
 
 @router.post("/leave")
@@ -312,12 +434,13 @@ async def leave_room(
     db.commit()
     return {"status": "success", "message": "Left room cleanly."}
 
-@router.get("/active")
-def get_active_room(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Check if the authenticated user has an active room or ongoing duel."""
+def get_active_room_helper(current_user: User, db: Session) -> dict:
+    """
+    Check if the authenticated user has an active room or ongoing duel.
+    Returns authoritative recovery info, remaining grace seconds, and public opponent info.
+    NEVER sends secret word!
+    """
+    import time
     active_room = (
         db.query(Room)
         .filter(
@@ -327,25 +450,72 @@ def get_active_room(
         .order_by(Room.created_at.desc())
         .first()
     )
-    if active_room:
-        session = room_manager.get_room(active_room.room_code)
-        # If in WAITING or READY, only consider active if user has an active websocket connection in memory
-        if active_room.status in ("WAITING", "READY"):
-            if not session or current_user.id not in session.connections:
-                return {"has_active_room": False, "room_code": None, "status": None, "is_host": False}
-        elif active_room.status in ("WORD_SELECTION", "PLAYING"):
-            if not session:
-                return {"has_active_room": False, "room_code": None, "status": None, "is_host": False}
+    if not active_room:
+        return {"active": False, "has_active_room": False}
 
+    session = room_manager.get_room(active_room.room_code)
+    # If in WAITING for human player, check if user is still in session or within grace
+    if active_room.status == "WAITING" and not (session and getattr(session, "is_bot_opponent", False)):
+        if not session or (current_user.id not in session.connections and current_user.id not in session.disconnect_deadlines):
+            return {"active": False, "has_active_room": False, "room_code": None, "status": None, "is_host": False}
         return {
+            "active": True,
             "has_active_room": True,
             "room_code": active_room.room_code,
             "status": active_room.status,
+            "can_rejoin": True,
             "is_host": (active_room.player1_id == current_user.id),
             "is_private": session.is_private if session else getattr(active_room, "is_private", True),
             "entry_fee": getattr(session, "entry_fee", None) or getattr(active_room, "entry_fee", 50)
         }
-    return {"has_active_room": False, "room_code": None, "status": None, "is_host": False, "entry_fee": 50}
+
+    # In active duel (READY with bot, WORD_SELECTION or PLAYING)
+    if not session or not session.game or session.game.state == "GAME_OVER":
+        return {"active": False, "has_active_room": False}
+
+    # Check if disconnected and if grace period has expired
+    remaining_seconds = 60
+    if current_user.id in session.disconnect_deadlines:
+        deadline = session.disconnect_deadlines[current_user.id]
+        diff = deadline - time.time()
+        if diff <= 0:
+            # Grace period expired
+            return {"active": False, "has_active_room": False, "message": "Grace period expired."}
+        remaining_seconds = max(1, int(round(diff)))
+    elif current_user.id not in session.connections:
+        remaining_seconds = 60
+
+    is_p1 = (active_room.player1_id == current_user.id)
+    opp_user = active_room.player2 if is_p1 else active_room.player1
+    opp_name = opp_user.username if opp_user else ("BOT" if getattr(session.game, "is_bot_opponent", False) else "Challenger")
+    opp_avatar = opp_user.avatar if opp_user else ("avatar-robot" if getattr(session.game, "is_bot_opponent", False) else "avatar-1")
+
+    return {
+        "active": True,
+        "has_active_room": True,
+        "room_code": active_room.room_code,
+        "room_id": active_room.room_code,
+        "status": session.game.state.lower(),
+        "game_state": session.game.state,
+        "can_rejoin": True,
+        "remaining_seconds": remaining_seconds,
+        "is_bot": getattr(session.game, "is_bot_opponent", False),
+        "difficulty": getattr(session.game, "bot_difficulty", "normal"),
+        "opponent": {
+            "id": opp_user.id if opp_user else 99999,
+            "username": opp_name,
+            "avatar": opp_avatar
+        },
+        "is_host": is_p1,
+        "entry_fee": getattr(session, "entry_fee", None) or getattr(active_room, "entry_fee", 10)
+    }
+
+@router.get("/active")
+def get_active_room(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return get_active_room_helper(current_user, db)
 
 @router.post("/join", response_model=RoomResponse)
 def join_room(

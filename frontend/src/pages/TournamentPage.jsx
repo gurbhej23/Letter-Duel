@@ -329,17 +329,7 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
       </div>
 
       {/* Tournament Hero Header */}
-      <div
-        className="glass-panel"
-        style={{
-          padding: 'clamp(18px, 4vw, 28px)',
-          borderRadius: 'var(--radius-lg)',
-          marginBottom: '24px',
-          background: 'radial-gradient(ellipse at top, rgba(0, 242, 254, 0.12) 0%, rgba(18, 24, 38, 0.95) 75%)',
-          border: '1px solid var(--border-glow)',
-          boxShadow: '0 0 30px rgba(0, 242, 254, 0.15)'
-        }}
-      >
+      <div className="glass-panel tournament-hero-panel">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
@@ -350,7 +340,7 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
                   fontSize: 'clamp(1.4rem, 4vw, 2rem)',
                   fontWeight: '900',
                   letterSpacing: '0.5px',
-                  background: 'linear-gradient(90deg, #00f2fe, #fff, #ffb300)',
+                  background: 'linear-gradient(90deg, var(--neon-cyan), var(--text-primary), #ffb300)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent'
                 }}
@@ -405,24 +395,24 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
             gap: '12px',
             marginTop: '20px',
             paddingTop: '16px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+            borderTop: '1px solid var(--border-subtle)'
           }}
         >
-          <div style={{ background: 'rgba(255, 179, 0, 0.08)', border: '1px solid rgba(255, 179, 0, 0.3)', padding: '10px 14px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.72rem', color: '#ffb300', fontWeight: '800', textTransform: 'uppercase' }}>🥇 Champion</div>
-            <div style={{ fontSize: '1.05rem', fontWeight: '900', marginTop: '2px' }}>+250 🪙 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>+500 XP</span></div>
+          <div className="tournament-prize-chip champion">
+            <div style={{ fontSize: '0.74rem', color: 'var(--neon-amber)', fontWeight: '800', textTransform: 'uppercase' }}>🥇 Champion</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: '900', marginTop: '2px', color: 'var(--text-primary)' }}>+250 🪙 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>+500 XP</span></div>
           </div>
-          <div style={{ background: 'rgba(203, 213, 225, 0.08)', border: '1px solid rgba(203, 213, 225, 0.2)', padding: '10px 14px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.72rem', color: '#cbd5e1', fontWeight: '800', textTransform: 'uppercase' }}>🥈 Runner-Up</div>
-            <div style={{ fontSize: '1.05rem', fontWeight: '900', marginTop: '2px' }}>+150 🪙 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>+350 XP</span></div>
+          <div className="tournament-prize-chip runner-up">
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: '800', textTransform: 'uppercase' }}>🥈 Runner-Up</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: '900', marginTop: '2px', color: 'var(--text-primary)' }}>+150 🪙 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>+350 XP</span></div>
           </div>
-          <div style={{ background: 'rgba(0, 242, 254, 0.06)', border: '1px solid rgba(0, 242, 254, 0.2)', padding: '10px 14px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--neon-cyan)', fontWeight: '800', textTransform: 'uppercase' }}>🥉 Semi-Finalists</div>
-            <div style={{ fontSize: '1.05rem', fontWeight: '900', marginTop: '2px' }}>+100 🪙 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>+200 XP</span></div>
+          <div className="tournament-prize-chip semis">
+            <div style={{ fontSize: '0.74rem', color: 'var(--neon-cyan)', fontWeight: '800', textTransform: 'uppercase' }}>🥉 Semi-Finalists</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: '900', marginTop: '2px', color: 'var(--text-primary)' }}>+100 🪙 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>+200 XP</span></div>
           </div>
-          <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '10px 14px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase' }}>🎖️ Quarter-Finalists</div>
-            <div style={{ fontSize: '1.05rem', fontWeight: '900', marginTop: '2px' }}>+50 🪙 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>+100 XP</span></div>
+          <div className="tournament-prize-chip quarters">
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '800', textTransform: 'uppercase' }}>🎖️ Quarter-Finalists</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: '900', marginTop: '2px', color: 'var(--text-primary)' }}>+50 🪙 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>+100 XP</span></div>
           </div>
         </div>
       </div>
@@ -707,9 +697,9 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
                       padding: '24px',
                       borderRadius: 'var(--radius-lg)',
                       textAlign: 'center',
-                      background: 'radial-gradient(circle, rgba(255, 179, 0, 0.2) 0%, rgba(18, 24, 38, 0.95) 80%)',
+                      background: 'radial-gradient(circle, rgba(255, 179, 0, 0.2) 0%, var(--bg-surface) 80%)',
                       border: '2px solid #ffb300',
-                      boxShadow: '0 0 35px rgba(255, 179, 0, 0.3)'
+                      boxShadow: '0 0 35px rgba(255, 179, 0, 0.25)'
                     }}
                   >
                     <Crown size={36} color="#ffb300" style={{ marginBottom: '8px', filter: 'drop-shadow(0 0 10px #ffb300)' }} />
@@ -739,9 +729,9 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
               maxWidth: '480px',
               textAlign: 'center',
               padding: '36px 24px',
-              background: 'radial-gradient(circle, rgba(255, 179, 0, 0.25) 0%, #0c101a 80%)',
+              background: 'radial-gradient(circle, rgba(255, 179, 0, 0.25) 0%, var(--modal-bg) 80%)',
               border: '2px solid #ffb300',
-              boxShadow: '0 0 50px rgba(255, 179, 0, 0.4)'
+              boxShadow: '0 0 50px rgba(255, 179, 0, 0.35)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -760,12 +750,12 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
               Crown Champion of the Letter Duel 8-Player Knockout Arena!
             </p>
 
-            <div style={{ background: 'rgba(255, 255, 255, 0.05)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '24px', display: 'flex', justifyContent: 'space-around' }}>
+            <div style={{ background: 'var(--bg-surface-elevated)', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '24px', display: 'flex', justifyContent: 'space-around', border: '1px solid var(--border-subtle)' }}>
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Champion Coins</div>
                 <div style={{ fontSize: '1.25rem', fontWeight: '900', color: '#ffb300' }}>+250 🪙</div>
               </div>
-              <div style={{ width: '1px', background: 'rgba(255, 255, 255, 0.1)' }} />
+              <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Champion XP</div>
                 <div style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--neon-cyan)' }}>+500 XP</div>
@@ -807,9 +797,9 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
               maxWidth: '440px',
               textAlign: 'center',
               padding: '28px 24px',
-              background: 'radial-gradient(circle, rgba(255, 42, 109, 0.18) 0%, #0c101a 80%)',
+              background: 'radial-gradient(circle, rgba(255, 42, 109, 0.18) 0%, var(--modal-bg) 80%)',
               border: '1px solid rgba(255, 42, 109, 0.45)',
-              boxShadow: '0 0 35px rgba(255, 42, 109, 0.25)'
+              boxShadow: '0 0 35px rgba(255, 42, 109, 0.2)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -961,18 +951,18 @@ function MatchCard({ match, currentUserId, onEnterMatch, isGrandFinal = false })
         padding: '14px',
         borderRadius: 'var(--radius-md)',
         background: isUserInMatch && (isReady || isLive)
-          ? 'linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(18, 24, 38, 0.95))'
+          ? 'linear-gradient(135deg, rgba(0, 242, 254, 0.15), var(--bg-surface))'
           : isCompleted
-          ? 'rgba(18, 24, 38, 0.65)'
-          : 'rgba(18, 24, 38, 0.85)',
+          ? 'var(--bg-surface-elevated)'
+          : 'var(--bg-surface)',
         border: isUserInMatch && (isReady || isLive)
           ? '2px solid var(--neon-cyan)'
           : isGrandFinal
-          ? '2px solid rgba(255, 179, 0, 0.4)'
-          : '1px solid rgba(255, 255, 255, 0.08)',
+          ? '2px solid rgba(255, 179, 0, 0.45)'
+          : '1px solid var(--border-subtle)',
         boxShadow: isUserInMatch && (isReady || isLive)
           ? '0 0 24px rgba(0, 242, 254, 0.3)'
-          : '0 4px 14px rgba(0,0,0,0.3)',
+          : '0 4px 14px rgba(0,0,0,0.08)',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',

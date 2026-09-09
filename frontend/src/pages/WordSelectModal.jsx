@@ -68,7 +68,7 @@ export default function WordSelectModal({ isOpen }) {
         </h2>
 
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '24px' }}>
-          Your opponent will only see your word length. Keep it cryptic!
+          Your opponent must guess your word using your clue/hint and letter count. Keep it clever!
         </p>
 
         {/* Word Secrecy Banner */}
@@ -162,14 +162,14 @@ export default function WordSelectModal({ isOpen }) {
                 marginBottom: '6px'
               }}>
                 <Lightbulb size={14} color="var(--neon-cyan)" />
-                Clue / Meaning Hint <span style={{ fontWeight: '400', color: 'var(--text-muted)' }}>(Optional)</span>
+                Clue / Meaning Hint <span style={{ fontWeight: '400', color: 'var(--text-muted)' }}>(Used by opponent to guess your word)</span>
               </label>
               <input
                 type="text"
                 maxLength={90}
                 value={hint}
                 onChange={(e) => setHint(e.target.value)}
-                placeholder="e.g. peace, state of calm (or leave empty for auto-hint)"
+                placeholder="e.g. state of calm and serenity (or leave blank for dictionary clue)"
                 style={{
                   width: '100%',
                   padding: '11px 14px',

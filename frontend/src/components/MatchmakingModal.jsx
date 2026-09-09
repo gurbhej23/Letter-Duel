@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
-import { X, Swords, CheckCircle2, Zap, ShieldCheck, Lock, AlertCircle, ArrowLeft, Trophy, Star } from 'lucide-react';
+import { X, Swords, CheckCircle2, Zap, ShieldCheck, Lock, AlertCircle, ArrowLeft, Trophy, Star, Bot, RefreshCw } from 'lucide-react';
 import { ARENA_TIERS, getTierForFee, getRecommendedArena } from '../utils/arenaTiers';
 import { isRankEligible, getRankMeta } from '../utils/rankUtils';
 
@@ -14,24 +14,30 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
 
   const [selectedFee, setSelectedFee] = useState(10);
   const [searching, setSearching] = useState(false);
+  const [isRequestInFlight, setIsRequestInFlight] = useState(false);
   const [errorNotice, setErrorNotice] = useState('');
   const [statusText, setStatusText] = useState('Finding a worthy rival...');
   const [matched, setMatched] = useState(false);
   const [matchedOpponent, setMatchedOpponent] = useState(null);
   const [countdown, setCountdown] = useState(3);
+  const [botOfferAvailable, setBotOfferAvailable] = useState(false);
+  const [selectedBotDifficulty, setSelectedBotDifficulty] = useState('normal');
 
   const activeRoomCodeRef = useRef(null);
   const matchedRef = useRef(false);
   const countdownIntervalRef = useRef(null);
   const statusIntervalRef = useRef(null);
+  const botTimeoutRef = useRef(null);
 
   // Reset state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setSearching(false);
+      setIsRequestInFlight(false);
       setMatched(false);
       setMatchedOpponent(null);
       setCountdown(3);
+      setBotOfferAvailable(false);
       matchedRef.current = false;
       activeRoomCodeRef.current = null;
       setErrorNotice('');
@@ -42,6 +48,10 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
       if (statusIntervalRef.current) {
         clearInterval(statusIntervalRef.current);
         statusIntervalRef.current = null;
+      }
+      if (botTimeoutRef.current) {
+        clearTimeout(botTimeoutRef.current);
+        botTimeoutRef.current = null;
       }
       setStatusText('Initializing global neural radar...');
       return;
@@ -86,9 +96,59 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     }, 800);
   };
 
+  // Launch Duel against authoritative Server Bot
+  const handlePlayWithBot = async (diff) => {
+    if (!token || isRequestInFlight) return;
+    setIsRequestInFlight(true);
+    setErrorNotice('');
+    const difficultyToUse = diff || selectedBotDifficulty;
+
+    try {
+      playClick();
+      // If currently searching, stop the interval
+      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+      if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+
+      setSearching(true);
+      setStatusText(`Summoning Bot AI (${difficultyToUse.toUpperCase()})...`);
+
+      const res = await fetch('/api/rooms/bot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          entry_fee: selectedFee,
+          difficulty: difficultyToUse
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || 'Could not start bot duel');
+      }
+
+      const data = await res.json();
+      activeRoomCodeRef.current = data.room_code;
+      connectToRoom(data.room_code);
+
+      setTimeout(() => {
+        triggerMatchConfirmed(data.room_code, data.opponent);
+      }, 700);
+    } catch (err) {
+      console.error('Bot launch error:', err);
+      playMiss();
+      setErrorNotice(err.message || 'Bot match initialization failed');
+      setSearching(false);
+    } finally {
+      setIsRequestInFlight(false);
+    }
+  };
+
   // Start matchmaking for selected tier
   const handleStartSearch = async () => {
-    if (!token) return;
+    if (!token || isRequestInFlight) return;
     const tier = getTierForFee(selectedFee);
     const userCoins = user?.coins ?? 100;
     const userRank = user?.rank || "Bronze III";
@@ -107,7 +167,15 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     playClick();
     setErrorNotice('');
     setSearching(true);
+    setBotOfferAvailable(false);
+    setIsRequestInFlight(true);
     setStatusText('Finding a worthy rival...');
+
+    // 5-second timeout to offer playing against BOT
+    if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+    botTimeoutRef.current = setTimeout(() => {
+      setBotOfferAvailable(true);
+    }, 5000);
 
     const messages = [
       'Finding a worthy rival...',
@@ -149,6 +217,8 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
       playMiss();
       setErrorNotice(err.message || 'Matchmaking request failed');
       setSearching(false);
+    } finally {
+      setIsRequestInFlight(false);
     }
   };
 
@@ -164,6 +234,11 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
     playClick();
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+    if (botTimeoutRef.current) clearTimeout(botTimeoutRef.current);
+
+    setBotOfferAvailable(false);
+    setIsRequestInFlight(false);
+    activeRoomCodeRef.current = null;
 
     try {
       if (token) {
@@ -434,11 +509,54 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
                 gap: '8px'
               }}
               onClick={handleStartSearch}
-              disabled={!isRankEligible(userRank, currentTier.minRank) || userCoins < currentTier.fee}
+              disabled={!isRankEligible(userRank, currentTier.minRank) || userCoins < currentTier.fee || isRequestInFlight}
             >
               <Zap size={18} />
               <span>Enter {currentTier.name} (Find Rival)</span>
             </button>
+
+            {/* Direct Bot Duel Practice Option */}
+            <div style={{
+              marginTop: '12px',
+              padding: '12px 14px',
+              background: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: '800', color: 'var(--neon-cyan)' }}>
+                  <Bot size={16} /> Practice Duel vs BOT
+                </div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Authoritative Server Bot</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                {['easy', 'normal', 'hard'].map((diff) => (
+                  <button
+                    key={diff}
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '8px 4px',
+                      fontSize: '0.78rem',
+                      fontWeight: '800',
+                      textTransform: 'uppercase',
+                      borderColor: selectedBotDifficulty === diff ? 'var(--neon-cyan)' : undefined,
+                      color: selectedBotDifficulty === diff ? 'var(--neon-cyan)' : undefined
+                    }}
+                    onClick={() => {
+                      setSelectedBotDifficulty(diff);
+                      handlePlayWithBot(diff);
+                    }}
+                    disabled={isRequestInFlight}
+                  >
+                    {diff === 'easy' ? '🟢 Easy' : diff === 'normal' ? '🟡 Normal' : '🔴 Hard'}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : !matched ? (
           /* ======================================================== */
@@ -639,9 +757,51 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
             </h2>
 
             {/* Status text */}
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '24px' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '18px' }}>
               {statusText}
             </p>
+
+            {/* 5-second Bot Matchmaking Offer */}
+            {botOfferAvailable && (
+              <div style={{
+                marginBottom: '20px',
+                padding: '14px',
+                background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.12), rgba(142, 45, 226, 0.12))',
+                border: '1px solid var(--border-glow)',
+                borderRadius: 'var(--radius-md)',
+                animation: 'fadeScaleIn 0.3s ease-out',
+                boxShadow: '0 0 20px rgba(0, 242, 254, 0.2)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <Bot size={18} color="var(--neon-cyan)" />
+                  <span style={{ fontWeight: '800', fontSize: '0.9rem', color: '#fff' }}>
+                    Challenger Queue Busy?
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
+                  Play immediately against our authoritative server AI bot in this arena:
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {['easy', 'normal', 'hard'].map((diff) => (
+                    <button
+                      key={diff}
+                      type="button"
+                      className="btn btn-primary"
+                      style={{
+                        padding: '8px 4px',
+                        fontSize: '0.76rem',
+                        fontWeight: '800',
+                        textTransform: 'uppercase'
+                      }}
+                      onClick={() => handlePlayWithBot(diff)}
+                      disabled={isRequestInFlight}
+                    >
+                      {diff === 'easy' ? '🟢 Easy' : diff === 'normal' ? '🟡 Normal' : '🔴 Hard'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Cancel Button */}
             <div>

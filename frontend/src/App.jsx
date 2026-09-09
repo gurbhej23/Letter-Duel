@@ -16,6 +16,7 @@ import LeaderboardModal from './components/LeaderboardModal';
 import FriendsModal from './components/FriendsModal';
 import ProfileModal from './components/ProfileModal';
 import MatchmakingModal from './components/MatchmakingModal';
+import ActiveMatchModal from './components/ActiveMatchModal';
 import ToastContainer from './components/ToastContainer';
 
 function MainApp() {
@@ -30,12 +31,41 @@ function MainApp() {
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [matchmakingOpen, setMatchmakingOpen] = useState(false);
+  const [activeMatch, setActiveMatch] = useState(null);
   const [tournamentOpen, setTournamentOpen] = useState(() => {
     return sessionStorage.getItem('letter_duel_tournament_open') === 'true';
   });
   const [incomingChallenge, setIncomingChallenge] = useState(null);
 
   const seenInvitesRef = useRef(new Set());
+
+  // Check for active match on mount / login if not currently connected
+  useEffect(() => {
+    if (!token || currentRoomCode) {
+      setActiveMatch(null);
+      return;
+    }
+
+    const checkActiveMatch = async () => {
+      try {
+        const res = await fetch('/api/game/active', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.active && data.can_rejoin) {
+            setActiveMatch(data);
+          } else {
+            setActiveMatch(null);
+          }
+        }
+      } catch (err) {
+        // silent
+      }
+    };
+
+    checkActiveMatch();
+  }, [token, currentRoomCode]);
 
   const handleOpenTournament = () => {
     sessionStorage.setItem('letter_duel_tournament_open', 'true');
@@ -201,6 +231,27 @@ function MainApp() {
         onClose={() => setMatchmakingOpen(false)}
         onMatched={(code) => {
           connectToRoom(code);
+        }}
+      />
+      <ActiveMatchModal
+        activeMatch={activeMatch}
+        onRejoin={(code) => {
+          setActiveMatch(null);
+          sessionStorage.setItem('letter_duel_view', 'arena');
+          connectToRoom(code);
+        }}
+        onLeave={async () => {
+          setActiveMatch(null);
+          try {
+            if (token) {
+              await fetch('/api/rooms/quickmatch/cancel', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+              });
+            }
+          } catch (e) {
+            // ignore
+          }
         }}
       />
 

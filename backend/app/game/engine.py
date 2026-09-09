@@ -4,6 +4,9 @@ from typing import Dict, List, Optional, Tuple
 from app.game.words import validate_word
 from app.game.definitions import get_word_definition
 
+BOT_USER_ID = 99999
+BOT_USERNAME = "BOT"
+
 
 class LetterDuelGame:
     def __init__(
@@ -17,7 +20,8 @@ class LetterDuelGame:
         player2_avatar: Optional[str] = None,
         allow_custom_words: bool = True,
         is_private: bool = True,
-        reveal_initial_letters: bool = True
+        reveal_initial_letters: bool = False,
+        bot_difficulty: str = "normal"
     ):
         self.room_code = room_code
         self.player1_id = player1_id
@@ -29,6 +33,7 @@ class LetterDuelGame:
         self.allow_custom_words = allow_custom_words
         self.is_private = is_private
         self.is_bot_opponent = False
+        self.bot_difficulty = bot_difficulty.lower() if bot_difficulty else "normal"
         self.reveal_initial_letters = reveal_initial_letters
 
         # Game state: "WAITING", "READY", "WORD_SELECTION", "PLAYING", "GAME_OVER"
@@ -276,11 +281,12 @@ class LetterDuelGame:
         if self.player2_id:
             self.lifelines[self.player2_id] = self.max_lifelines
 
-        # Reveal 1 to 3 random letters for opponent word to both players
-        if p2_word:
-            self._apply_initial_reveals(guesser_id=self.player1_id, target_word=p2_word)
-        if self.player2_id and p1_word:
-            self._apply_initial_reveals(guesser_id=self.player2_id, target_word=p1_word)
+        # Reveal random letters for opponent word ONLY if reveal_initial_letters is explicitly enabled
+        if self.reveal_initial_letters:
+            if p2_word:
+                self._apply_initial_reveals(guesser_id=self.player1_id, target_word=p2_word)
+            if self.player2_id and p1_word:
+                self._apply_initial_reveals(guesser_id=self.player2_id, target_word=p1_word)
 
     def guess_letter(self, player_id: int, letter: str) -> Tuple[bool, dict, str]:
         """
@@ -563,6 +569,14 @@ class LetterDuelGame:
         self.win_reason = None
         self.rematch_votes.clear()
 
+        # If opponent is bot, immediately pre-assign fresh bot secret word
+        if self.is_bot_opponent and self.player2_id:
+            bot_words = ["CASTLE", "DRAGON", "GUITAR", "HORIZON", "PLANET", "SILVER", "WARRIOR", "DIAMOND", "CRYSTAL", "PHOENIX", "THUNDER", "PYRAMID"]
+            bot_choice = random.choice(bot_words)
+            self.secret_words[self.player2_id] = bot_choice
+            self.word_lengths[self.player2_id] = len(bot_choice)
+            self.word_hints[self.player2_id] = get_word_definition(bot_choice)
+
     def get_player_view(self, viewer_player_id: int) -> dict:
         """
         IMPORTANT SECURITY:
@@ -597,6 +611,8 @@ class LetterDuelGame:
         return {
             "room_code": self.room_code,
             "is_private": getattr(self, "is_private", True),
+            "is_bot_opponent": getattr(self, "is_bot_opponent", False),
+            "bot_difficulty": getattr(self, "bot_difficulty", "normal"),
             "state": self.state,
             "is_my_turn": (self.current_turn_player_id == viewer_player_id),
             "current_turn_player_id": self.current_turn_player_id,

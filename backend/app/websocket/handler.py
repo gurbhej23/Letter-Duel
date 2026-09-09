@@ -50,26 +50,210 @@ def cancel_turn_timer(session: RoomSession):
         session.turn_timer_task.cancel()
         session.turn_timer_task = None
 
+
+from collections import Counter
+from app.game.words import STANDARD_DICTIONARY
+import random
+
+
+def get_bot_candidates(game) -> list:
+    """Find words from STANDARD_DICTIONARY matching the opponent's word length and current revealed mask."""
+    opponent_id = game.player1_id
+    target_len = game.word_lengths.get(opponent_id, 0)
+    if target_len <= 0:
+        return []
+
+    mask = game.discovered_masks.get(99999, [])
+    guessed = {c.upper() for c in game.guessed_letters.get(99999, [])}
+    revealed_in_mask = {c.upper() for c in mask if c != "_"}
+    wrong_letters = {c for c in guessed if c not in revealed_in_mask}
+
+    candidates = []
+    for raw_word in STANDARD_DICTIONARY:
+        w = raw_word.strip().upper()
+        if len(w) != target_len or not w.isalpha():
+            continue
+        # Skip words containing letters known not to be in the target word
+        if any(bad in w for bad in wrong_letters):
+            continue
+
+        match = True
+        for i, char in enumerate(mask):
+            if char != "_":
+                if w[i] != char.upper():
+                    match = False
+                    break
+            else:
+                if w[i] in revealed_in_mask:
+                    match = False
+                    break
+        if match:
+            candidates.append(w)
+
+    return candidates
+
+
+def pick_bot_letter_from_candidates(candidates: list, guessed: set, difficulty: str) -> str:
+    """Pick an intelligent un-guessed letter using candidate frequency or standard English frequency."""
+    frequency_fallback = "EARIOTNSLCUDPMHGBFYWKVXZJQ"
+
+    if candidates:
+        freq = Counter()
+        for w in candidates:
+            for ch in set(w):
+                if ch not in guessed and ch.isalpha():
+                    freq[ch] += 1
+
+        ranked = [ch for ch, _ in freq.most_common()]
+        if ranked:
+            if difficulty == "hard":
+                return ranked[0]
+            elif difficulty == "normal":
+                top = ranked[:min(len(ranked), 2)]
+                return top[0] if random.random() < 0.8 else top[-1]
+            else:  # easy
+                top = ranked[:min(len(ranked), 4)]
+                return random.choice(top)
+
+    remaining = [c for c in frequency_fallback if c not in guessed]
+    if remaining:
+        if difficulty == "easy":
+            top_slice = remaining[:min(len(remaining), 6)]
+            return random.choice(top_slice)
+        elif difficulty == "normal":
+            top_slice = remaining[:min(len(remaining), 3)]
+            return top_slice[0] if random.random() < 0.85 else top_slice[-1]
+        else:  # hard
+            return remaining[0]
+
+    all_az = [chr(c) for c in range(ord('A'), ord('Z') + 1) if chr(c) not in guessed]
+    if all_az:
+        return all_az[0]
+    return "E"
+
+
+def pick_bot_action(game, difficulty: str = "normal") -> tuple:
+    """
+    Determines next bot action: ('word', word_to_guess) or ('letter', letter_to_guess).
+    Uses pattern matching, difficulty tuning, and safety constraints.
+    """
+    guessed_letters = {c.upper() for c in game.guessed_letters.get(99999, [])}
+    attempts_used = game.word_guess_attempts.get(99999, 0)
+    attempts_left = max(0, game.max_word_guess_attempts - attempts_used)
+
+    mask = game.discovered_masks.get(99999, [])
+    target_len = len(mask)
+    revealed_count = sum(1 for c in mask if c != "_")
+    revealed_ratio = (revealed_count / target_len) if target_len > 0 else 0
+    blanks = target_len - revealed_count
+
+    candidates = get_bot_candidates(game)
+
+    # 1. Full word guess check
+    if attempts_left > 0 and candidates:
+        should_guess_word = False
+        if difficulty == "hard":
+            if len(candidates) == 1 and (revealed_ratio >= 0.4 or blanks <= 4):
+                should_guess_word = True
+            elif len(candidates) <= 3 and (revealed_ratio >= 0.6 or blanks <= 2):
+                should_guess_word = random.random() < 0.90
+            elif blanks == 1:
+                should_guess_word = True
+        elif difficulty == "normal":
+            if len(candidates) == 1 and (revealed_ratio >= 0.55 or blanks <= 3):
+                should_guess_word = random.random() < 0.85
+            elif len(candidates) <= 2 and (revealed_ratio >= 0.70 or blanks <= 2):
+                should_guess_word = random.random() < 0.70
+            elif blanks == 1 and len(candidates) <= 3:
+                should_guess_word = random.random() < 0.80
+        else:  # easy
+            if len(candidates) == 1 and blanks <= 1:
+                should_guess_word = random.random() < 0.50
+
+        if should_guess_word:
+            return "word", candidates[0]
+
+    # 2. Letter guess
+    letter = pick_bot_letter_from_candidates(candidates, guessed_letters, difficulty)
+    return "letter", letter
+
+
+def pick_bot_letter(game, difficulty: str = "normal") -> str:
+    """Backward-compatible helper for selecting next bot letter."""
+    guessed_letters = {c.upper() for c in game.guessed_letters.get(99999, [])}
+    candidates = get_bot_candidates(game)
+    return pick_bot_letter_from_candidates(candidates, guessed_letters, difficulty)
+
+
 async def bot_turn_worker(session: RoomSession):
-    """Simulates an online challenger taking their turn after a natural thinking delay."""
+    """
+    Simulates a smart server-side bot taking its turn with a human-like delay
+    and believable difficulty strategies.
+    Supports intelligent letter guessing and full-word guesses when confident.
+    Guarantees turn progression never stalls.
+    """
     try:
-        await asyncio.sleep(3.5)  # 3.5s thinking delay
+        difficulty = (session.bot_difficulty or "normal").lower()
+        if difficulty == "easy":
+            delay = random.uniform(1.0, 1.4)
+        elif difficulty == "hard":
+            delay = random.uniform(0.6, 0.9)
+        else:
+            delay = random.uniform(0.8, 1.2)
+
+        await asyncio.sleep(delay)
         if not session.game or session.game.state != "PLAYING":
             return
         if session.game.current_turn_player_id != 99999:
             return
 
-        guessed = set(session.game.guessed_letters.get(99999, []))
-        common_order = "EARTOISNLCDUGPMHBYFVKWXZJQ"
-        chosen_letter = "A"
-        for ch in common_order:
-            if ch not in guessed:
-                chosen_letter = ch
-                break
+        bot_name = session.game.player2_username or "BOT"
+        action_type, action_val = pick_bot_action(session.game, difficulty)
 
-        ok, result_data, notice = session.game.guess_letter(99999, chosen_letter)
+        if action_type == "word":
+            ok, result_data, notice = session.game.guess_full_word(99999, action_val)
+            if ok:
+                await broadcast_to_room(session, "word_guess_result", {
+                    "guesser_id": 99999,
+                    "guesser_username": bot_name,
+                    "word": result_data["word"],
+                    "result": result_data["result"],
+                    "attempts_left": result_data["attempts_left"],
+                    "next_turn_player_id": result_data["next_turn_player_id"],
+                    "game_over": result_data["game_over"]
+                })
+                res_str = "CORRECT! 🏆" if result_data["result"] else "INCORRECT."
+                sys_msg = f"🤖 {bot_name} guessed full word '{result_data['word']}' → {res_str}"
+                await broadcast_to_room(session, "chat_message", {
+                    "sender_id": None,
+                    "sender_username": "SYSTEM",
+                    "message": sys_msg,
+                    "is_system": True,
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                })
+
+                if result_data["game_over"]:
+                    cancel_turn_timer(session)
+                    with SessionLocal() as db_session:
+                        persist_game_end_to_db(session, db_session)
+                    await broadcast_to_room(session, "game_won", {
+                        "winner_id": result_data["winner_id"],
+                        "reason": result_data["win_reason"],
+                        "game_over": True,
+                        "rewards": getattr(session.game, "rewards", None)
+                    })
+                else:
+                    start_turn_timer(session)
+
+                await send_sync_states(session)
+                return
+            else:
+                logger.warning(f"Bot full word guess '{action_val}' rejected: {notice}. Falling back to letter guess.")
+                action_val = pick_bot_letter(session.game, difficulty)
+
+        # Letter Guess Execution
+        ok, result_data, notice = session.game.guess_letter(99999, action_val)
         if ok:
-            bot_name = session.game.player2_username or "Challenger"
             await broadcast_to_room(session, "guess_result", {
                 "guesser_id": 99999,
                 "guesser_username": bot_name,
@@ -79,7 +263,7 @@ async def bot_turn_worker(session: RoomSession):
                 "game_over": result_data["game_over"],
                 "positions": result_data.get("positions", [])
             })
-            sys_msg = f"{bot_name} guessed '{chosen_letter}' → {'YES' if result_data['result'] else 'NO'}."
+            sys_msg = f"🤖 {bot_name} guessed '{action_val}' → {'YES' if result_data['result'] else 'NO'}."
             await broadcast_to_room(session, "chat_message", {
                 "sender_id": None,
                 "sender_username": "SYSTEM",
@@ -102,10 +286,30 @@ async def bot_turn_worker(session: RoomSession):
                 start_turn_timer(session)
 
             await send_sync_states(session)
+        else:
+            logger.warning(f"Bot letter guess '{action_val}' failed: {notice}. Triggering turn timeout to prevent hang.")
+            ok_to, timeout_data, notice_to = session.game.timeout_turn()
+            if ok_to:
+                await broadcast_to_room(session, "turn_timeout", timeout_data)
+                if timeout_data.get("game_over"):
+                    cancel_turn_timer(session)
+                    with SessionLocal() as db_session:
+                        persist_game_end_to_db(session, db_session)
+                    await broadcast_to_room(session, "game_won", {
+                        "winner_id": timeout_data["winner_id"],
+                        "reason": timeout_data["win_reason"],
+                        "game_over": True,
+                        "rewards": getattr(session.game, "rewards", None)
+                    })
+                else:
+                    start_turn_timer(session)
+                await send_sync_states(session)
+
     except asyncio.CancelledError:
         pass
     except Exception as e:
-        logger.error(f"Error in bot_turn_worker: {e}")
+        logger.error(f"Error in bot_turn_worker: {e}", exc_info=True)
+
 
 def start_turn_timer(session: RoomSession):
     """
@@ -118,7 +322,10 @@ def start_turn_timer(session: RoomSession):
     if not session.game or session.game.state != "PLAYING":
         return
 
-    loop = asyncio.get_event_loop()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.get_event_loop()
 
     # If it's the bot's turn, execute bot turn worker
     if session.game.is_bot_opponent and session.game.current_turn_player_id == 99999:

@@ -1,5 +1,5 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
@@ -92,7 +92,16 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
     return Token(access_token=token, token_type="bearer", user=UserResponse.model_validate(user))
 
 @router.get("/me", response_model=UserResponse)
-def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_me(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Set strict anti-caching headers so browsers, CDNs, and proxies never cache user identity
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
     from app.routes.friends import touch_user_online
     touch_user_online(current_user.id)
     return UserResponse.model_validate(current_user)

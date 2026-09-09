@@ -10,7 +10,7 @@ import { getRankMeta } from '../utils/rankUtils';
 export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenFriends, onOpenProfile, onOpenTournaments }) {
   const { user, logout } = useAuth();
   const { isMuted, toggleMute, playClick } = useSound();
-  const { leaveRoom, currentRoomCode, gameState } = useSocket();
+  const { leaveRoom, currentRoomCode, gameState, onlineCount } = useSocket();
   const { theme, toggleTheme, isDark } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -101,46 +101,31 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
   }, [mobileMenuOpen]);
 
   return (
-    <nav style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: 'clamp(10px, 2.5vw, 16px) clamp(14px, 3.5vw, 28px)',
-      background: 'var(--nav-bg)',
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)',
-      borderBottom: '1px solid var(--border-subtle)',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-      width: '100%',
-      transition: 'background 0.25s ease, border-color 0.25s ease'
-    }}>
-      {/* Brand Logo */}
-      <div 
-        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', minHeight: '44px' }}
-        onClick={() => { playClick(); setMobileMenuOpen(false); window.location.hash = ''; }}
-      >
-        <div style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: '10px',
-          background: 'linear-gradient(135deg, #00f2fe 0%, #8e2de2 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 0 16px rgba(0, 242, 254, 0.4)',
-          flexShrink: 0
-        }}>
-          <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#fff', fontFamily: 'var(--font-display)' }}>⚔️</span>
+    <nav className="glass-navbar">
+      {/* Brand Logo & Online Presence */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div 
+          className="nav-brand-container"
+          onClick={() => { playClick(); setMobileMenuOpen(false); window.location.hash = ''; }}
+          title="Letter Duel Home"
+        >
+          <div className="nav-brand-badge">
+            <span style={{ fontSize: '1.25rem', fontWeight: '900', color: '#fff', fontFamily: 'var(--font-display)' }}>⚔️</span>
+          </div>
+          <div>
+            <div className="nav-brand-title">
+              LETTER DUEL
+            </div>
+            <div className="nav-brand-subtitle">
+              1v1 Arena
+            </div>
+          </div>
         </div>
-        <div>
-          <div className="nav-brand-title">
-            LETTER DUEL
-          </div>
-          <div className="nav-brand-subtitle">
-            1v1 Real-Time Arena
-          </div>
+
+        {/* Live Online Presence Pill */}
+        <div className="nav-online-pill" title="Active players online across the server">
+          <div className="nav-online-dot" />
+          <span>{Math.max(1, onlineCount || 1)} Online</span>
         </div>
       </div>
 
@@ -166,21 +151,21 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           {isDark ? <Sun size={18} color="#ffb300" /> : <Moon size={18} color="#7c3aed" />}
         </button>
 
-        {/* How to Play */}
+        {/* How to Play / Rules */}
         <button 
-          className="btn btn-secondary btn-sm"
+          className="nav-pill-btn"
           onClick={() => handleNavAction(onOpenTutorial)}
-          title="Rules"
+          title="Game Rules"
         >
-          <BookOpen size={16} />
+          <BookOpen size={16} color="var(--neon-cyan)" />
           <span>Rules</span>
         </button>
 
         {/* Leaderboard */}
         <button 
-          className="btn btn-secondary btn-sm"
+          className="nav-pill-btn"
           onClick={() => handleNavAction(onOpenLeaderboard)}
-          title="Ranks"
+          title="Ranked Leaderboards"
         >
           <Trophy size={16} color="#ffb300" />
           <span>Ranks</span>
@@ -189,9 +174,9 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
         {/* Friends (if logged in) */}
         {user && (
           <button 
-            className="btn btn-secondary btn-sm"
+            className="nav-pill-btn"
             onClick={() => handleNavAction(onOpenFriends)}
-            title="Friends"
+            title="Friends & Direct Challenges"
           >
             <Users size={16} color="#00e676" />
             <span>Friends</span>

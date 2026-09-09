@@ -94,19 +94,43 @@ try:
 except Exception:
     pass
 
+# Ensure dedicated Bot participant exists in database (for foreign-key integrity in Bot matches)
+try:
+    with SessionLocal() as db_init:
+        bot_user = db_init.query(User).filter(User.id == 99999).first()
+        if not bot_user:
+            bot_user = User(
+                id=99999,
+                username="BOT",
+                email="bot@letterduel.internal",
+                password_hash="system_bot_disabled_login",
+                avatar="avatar-robot",
+                coins=10000,
+                rating=800,
+                rank="Bronze III"
+            )
+            db_init.add(bot_user)
+            db_init.commit()
+except Exception:
+    pass
+
 # Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# CORS
+# CORS configuration supporting production Vercel deployment and local dev
+allowed_origins = settings.get_allowed_cors_origins()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https?://.*(\.vercel\.app|\.ngrok-free\.dev|\.ngrok-free\.app|\.ngrok\.io|\.loca\.lt|localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Include Routers
@@ -123,3 +147,16 @@ app.include_router(ws_tournament_handler.router)
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "app": settings.PROJECT_NAME, "version": "1.0.0"}
+
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.auth.deps import get_current_user
+
+@app.get("/api/game/active")
+def get_active_game(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.routes.rooms import get_active_room_helper
+    return get_active_room_helper(current_user, db)

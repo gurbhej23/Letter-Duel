@@ -253,20 +253,21 @@ def test_turn_timeout():
     assert game.winner_id == 2
     assert game.win_reason == "TIMEOUT_DISQUALIFIED"
 
-def test_random_initial_reveals_and_hints():
-    """Verify that when words are locked with default settings, 1-3 random letters are revealed."""
+def test_clue_hint_only_without_random_reveals():
+    """Verify that only the clue/hint is provided and NO random letters are revealed at match start."""
     game = LetterDuelGame(
         room_code="HINT01",
         player1_id=10,
         player2_id=20,
         player1_username="Alice",
         player2_username="Bob",
-        allow_custom_words=True
+        allow_custom_words=True,
+        reveal_initial_letters=False
     )
     game.set_player_ready(10)
     game.set_player_ready(20)
 
-    # Player 1 locks TRANQUILITY (11 letters) with auto-definition
+    # Player 1 locks TRANQUILITY (11 letters)
     # Player 2 locks PEACE (5 letters) with custom clue "Inner calm and harmony"
     ok1, _ = game.lock_word(10, "TRANQUILITY")
     ok2, _ = game.lock_word(20, "PEACE", hint="Inner calm and harmony")
@@ -277,36 +278,23 @@ def test_random_initial_reveals_and_hints():
     p1_view = game.get_player_view(10)  # Alice guessing Bob's "PEACE"
     p2_view = game.get_player_view(20)  # Bob guessing Alice's "TRANQUILITY"
 
-    # Bob's word is PEACE (5 letters) -> Alice should get 1 revealed letter
+    # Bob's word is PEACE (5 letters) -> NO random letters revealed, all tiles blank
     p1_revealed = p1_view["initial_revealed_letters"]
-    assert len(p1_revealed) == 1
-    assert p1_revealed[0] in "PEACE"
-    # Mask should have that letter uncovered
-    assert p1_view["opponent_mask"].count("_") < 5
+    assert len(p1_revealed) == 0
+    assert p1_view["opponent_mask"] == ["_"] * 5
     # Alice should see Bob's custom clue
     assert p1_view["opponent_hint"] == "Inner calm and harmony"
 
-    # Alice's word is TRANQUILITY (11 letters) -> Bob should get 2 or 3 revealed letters
+    # Alice's word is TRANQUILITY (11 letters) -> NO random letters revealed, all tiles blank
     p2_revealed = p2_view["initial_revealed_letters"]
-    assert len(p2_revealed) in (2, 3)
-    for ch in p2_revealed:
-        assert ch in "TRANQUILITY"
-        # Must be in opponent's mask
-        assert ch in p2_view["opponent_mask"]
-        # Must be in guessed_letters
-        assert ch in p2_view["my_guessed_letters"]
-    # At least 2 distinct letters must remain hidden
-    hidden_count = p2_view["opponent_mask"].count("_")
-    assert hidden_count >= 2
-    # Bob should see the auto definition for TRANQUILITY
+    assert len(p2_revealed) == 0
+    assert p2_view["opponent_mask"] == ["_"] * 11
+    # Bob should see the auto definition / clue for TRANQUILITY
     assert "peace" in p2_view["opponent_hint"].lower() or "calm" in p2_view["opponent_hint"].lower()
 
-    # Bob attempts to guess a letter that was already initially revealed -> must fail
-    already_revealed = p2_revealed[0]
-    # If it's not Bob's turn, Alice takes a turn first
+    # Players guess letters guided by the clue
     if game.current_turn_player_id == 10:
-        # Alice guesses a letter
-        game.guess_letter(10, "Z")  # switches turn to Bob
-    ok_dup, _, err = game.guess_letter(20, already_revealed)
-    assert ok_dup is False
-    assert "already been guessed" in err
+        ok_guess, res, _ = game.guess_letter(10, "P")
+        assert ok_guess
+        assert res["result"] is True
+        assert game.discovered_masks[10][0] == "P"

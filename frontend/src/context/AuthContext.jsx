@@ -1,55 +1,105 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
+const TOKEN_STORAGE_KEY = 'letter_duel_token';
+
+function getStoredToken() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEY) || sessionStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!raw || typeof raw !== 'string') return null;
+    const clean = raw.trim();
+    if (!clean || clean === 'null' || clean === 'undefined') return null;
+    return clean;
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => {
-    return localStorage.getItem('letter_duel_token') || sessionStorage.getItem('letter_duel_token');
-  });
+  const [token, setToken] = useState(getStoredToken);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (token) {
       fetchMe(token);
     } else {
+      setUser(null);
       setLoading(false);
     }
   }, [token]);
 
   const fetchMe = async (authToken) => {
+    if (!authToken) {
+      logout();
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${authToken}` }
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
       });
+
       if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          console.warn('[Auth] Received non-JSON response for /api/auth/me. Server might be warming up.');
+          setLoading(false);
+          return;
+        }
         const data = await res.json();
-        setUser(data);
-      } else if (res.status === 401) {
+        if (data && data.id) {
+          setUser(data);
+        } else {
+          logout();
+        }
+      } else {
+        // Any 401, 403, 404, or non-200 response invalidates current token
+        console.warn(`[Auth] /api/auth/me returned status ${res.status}. Resetting session.`);
         logout();
       }
     } catch (e) {
-      console.error('Failed to fetch user profile:', e);
+      console.error('[Auth] Failed to verify user profile:', e);
     } finally {
       setLoading(false);
     }
   };
 
   const login = (authToken, userData, rememberMe = true) => {
-    if (rememberMe) {
-      localStorage.setItem('letter_duel_token', authToken);
-      sessionStorage.removeItem('letter_duel_token');
-    } else {
-      sessionStorage.setItem('letter_duel_token', authToken);
-      localStorage.removeItem('letter_duel_token');
+    if (!authToken || typeof authToken !== 'string') return;
+    const cleanToken = authToken.trim();
+    try {
+      if (rememberMe) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, cleanToken);
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      } else {
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, cleanToken);
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.warn('[Auth] Storage write failed:', e);
     }
-    setToken(authToken);
+    setToken(cleanToken);
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem('letter_duel_token');
-    sessionStorage.removeItem('letter_duel_token');
+    try {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      // Clean legacy keys if any exist
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+      localStorage.removeItem('letter_duel_room_code');
+      sessionStorage.removeItem('letter_duel_room_code');
+      sessionStorage.removeItem('letter_duel_view');
+      sessionStorage.removeItem('letter_duel_tournament_open');
+    } catch {}
     setToken(null);
     setUser(null);
   };
@@ -59,7 +109,10 @@ export function AuthProvider({ children }) {
     try {
       const res = await fetch('/api/auth/daily-bonus', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache'
+        }
       });
       const data = await res.json();
       if (res.ok) {
@@ -78,7 +131,15 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, refreshUser: () => token && fetchMe(token), claimDailyBonus }}>
+    <AuthContext.Provider value={{
+      user,
+      token,
+      loading,
+      login,
+      logout,
+      refreshUser: () => token && fetchMe(token),
+      claimDailyBonus
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -87,3 +148,4 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
+

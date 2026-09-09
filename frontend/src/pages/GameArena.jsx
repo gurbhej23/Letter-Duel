@@ -77,9 +77,13 @@ export default function GameArena({ roomCode, onLeaveGame }) {
     sound
   ]);
 
+  // Refresh user balance & level when game ends
+  const isGameOver = gameState?.state === 'GAME_OVER';
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+    if (isGameOver && refreshUser) {
+      refreshUser();
+    }
+  }, [isGameOver, refreshUser]);
 
   if (!gameState) {
     return (
@@ -103,15 +107,7 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const myGuessedLetters = new Set(gameState.my_guessed_letters || []);
   const opponentMask = gameState.opponent_mask || [];
   const myMask = gameState.my_mask || [];
-  const isGameOver = gameState.state === 'GAME_OVER';
   const isWinner = isGameOver && gameState.winner_id === user?.id;
-
-  // Refresh user balance & level when game ends
-  useEffect(() => {
-    if (isGameOver && refreshUser) {
-      refreshUser();
-    }
-  }, [isGameOver]);
 
   // Rematch status
   const hasVotedRematch = gameState.rematch_votes?.includes(user?.id);
@@ -430,29 +426,32 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
-                background: 'rgba(0, 242, 254, 0.08)',
-                border: '1px solid rgba(0, 242, 254, 0.28)',
-                boxShadow: '0 0 16px rgba(0, 242, 254, 0.06)',
+                gap: '10px',
+                background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.12), rgba(142, 45, 226, 0.12))',
+                border: '1.5px solid var(--neon-cyan)',
+                boxShadow: '0 0 20px rgba(0, 242, 254, 0.18)',
                 borderRadius: 'var(--radius-md)',
-                padding: '6px 14px',
-                margin: '10px auto 12px auto',
-                fontSize: 'clamp(0.8rem, 2.3vw, 0.88rem)',
+                padding: '8px 18px',
+                margin: '12px auto 14px auto',
+                fontSize: 'clamp(0.85rem, 2.5vw, 0.95rem)',
                 maxWidth: '96%',
                 lineHeight: 1.4
               }}>
-                <Lightbulb size={15} color="var(--neon-cyan)" style={{ flexShrink: 0 }} />
+                <Lightbulb size={18} color="var(--neon-cyan)" style={{ flexShrink: 0 }} />
                 <span style={{
-                  fontSize: '0.74rem',
+                  fontSize: '0.78rem',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.8px',
-                  fontWeight: 800,
-                  color: 'var(--neon-cyan)'
+                  letterSpacing: '1px',
+                  fontWeight: 900,
+                  color: 'var(--neon-cyan)',
+                  background: 'rgba(0, 242, 254, 0.15)',
+                  padding: '2px 8px',
+                  borderRadius: '6px'
                 }}>
-                  CLUE:
+                  HINT / CLUE:
                 </span>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                  {gameState.opponent_hint}
+                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                  "{gameState.opponent_hint}"
                 </span>
               </div>
             )}

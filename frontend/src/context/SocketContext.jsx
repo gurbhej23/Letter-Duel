@@ -164,7 +164,7 @@ export function SocketProvider({ children }) {
             setOnlineCount(Math.max(1, data.online_count));
           }
         }
-        else if (type === "game_state") {
+        else if (type === "game_state" || type === "game_state_sync") {
           setGameState(data);
           
           if (data.server_time) {
@@ -365,20 +365,66 @@ export function SocketProvider({ children }) {
     leaveRoom(false);
   }, [leaveRoom]);
 
-  // Clean up and leave room immediately on logout (when token becomes null)
+  const prevTokenRef = useRef(token);
+
+  // Clean up and close WebSocket immediately on logout or user switch
   useEffect(() => {
     if (!token) {
-      if (connected || wsRef.current || currentRoomCode || activeRoomRef.current) {
-        leaveRoom(true);
+      intentionalCloseRef.current = true;
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
       }
+      if (wsRef.current) {
+        try {
+          wsRef.current.close(1000, "User logged out");
+        } catch {}
+        wsRef.current = null;
+      }
+      setConnected(false);
       activeRoomRef.current = null;
       setCurrentRoomCode(null);
       setGameState(null);
+      setChatMessages([]);
+      setDisconnectTimer(null);
       sessionStorage.removeItem('letter_duel_room_code');
       localStorage.removeItem('letter_duel_room_code');
       sessionStorage.removeItem('letter_duel_view');
+    } else if (prevTokenRef.current && prevTokenRef.current !== token) {
+      // User identity switched: disconnect previous socket cleanly
+      intentionalCloseRef.current = true;
+      if (wsRef.current) {
+        try {
+          wsRef.current.close(1000, "User switched");
+        } catch {}
+        wsRef.current = null;
+      }
+      setConnected(false);
+      activeRoomRef.current = null;
+      setCurrentRoomCode(null);
+      setGameState(null);
+      setChatMessages([]);
     }
-  }, [token, connected, currentRoomCode, leaveRoom]);
+    prevTokenRef.current = token;
+  }, [token]);
+
+  // Handle mobile app switch / tab hidden-to-visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const storedRoom = activeRoomRef.current || localStorage.getItem('letter_duel_room_code') || sessionStorage.getItem('letter_duel_room_code');
+        if (storedRoom && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
+          connectToRoom(storedRoom);
+        } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          send('ping');
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [connectToRoom, send]);
 
   // Query server for active room and auto-reconnect on mount or page refresh
   useEffect(() => {
