@@ -6,7 +6,7 @@ from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.models import (
     User, Room, Game, Guess, ChatMessage, Friendship,
-    Tournament, TournamentParticipant, TournamentMatch
+    Tournament, TournamentParticipant, TournamentMatch, CoinTransaction
 )
 from app.routes import auth, rooms, friends, leaderboard, history, presence, tournaments
 from app.websocket import handler as ws_handler
@@ -15,84 +15,29 @@ from app.websocket import tournament_handler as ws_tournament_handler
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
 
-# Ensure migrations/columns exist for SQLite
-from sqlalchemy import text
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE rooms ADD COLUMN is_private BOOLEAN DEFAULT 0"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE rooms ADD COLUMN entry_fee INTEGER DEFAULT 50"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 500"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN last_daily_bonus DATETIME"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE tournament_matches ADD COLUMN checkin_deadline DATETIME"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE tournament_matches ADD COLUMN is_forfeit BOOLEAN DEFAULT 0"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN rating INTEGER DEFAULT 800"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN rank VARCHAR(30) DEFAULT 'Bronze III'"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN highest_rank VARCHAR(30) DEFAULT 'Bronze III'"))
-        conn.commit()
-except Exception:
-    pass
-
-try:
-    with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE users ADD COLUMN welcome_bonus_claimed BOOLEAN DEFAULT 1"))
-        conn.commit()
-except Exception:
-    pass
+# Legacy column backfill only if running against SQLite without migrations
+if engine.url.drivername.startswith("sqlite"):
+    from sqlalchemy import text
+    legacy_sqlite_migrations = [
+        "ALTER TABLE rooms ADD COLUMN is_private BOOLEAN DEFAULT 0",
+        "ALTER TABLE rooms ADD COLUMN entry_fee INTEGER DEFAULT 50",
+        "ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 500",
+        "ALTER TABLE users ADD COLUMN level INTEGER DEFAULT 1",
+        "ALTER TABLE users ADD COLUMN last_daily_bonus DATETIME",
+        "ALTER TABLE tournament_matches ADD COLUMN checkin_deadline DATETIME",
+        "ALTER TABLE tournament_matches ADD COLUMN is_forfeit BOOLEAN DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN rating INTEGER DEFAULT 800",
+        "ALTER TABLE users ADD COLUMN rank VARCHAR(30) DEFAULT 'Bronze III'",
+        "ALTER TABLE users ADD COLUMN highest_rank VARCHAR(30) DEFAULT 'Bronze III'",
+        "ALTER TABLE users ADD COLUMN welcome_bonus_claimed BOOLEAN DEFAULT 1",
+    ]
+    for statement in legacy_sqlite_migrations:
+        try:
+            with engine.connect() as conn:
+                conn.execute(text(statement))
+                conn.commit()
+        except Exception:
+            pass
 
 # Ensure dedicated Bot participant exists in database (for foreign-key integrity in Bot matches)
 try:

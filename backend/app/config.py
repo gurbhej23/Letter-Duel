@@ -11,6 +11,21 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./letter_duel.db")
+    DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "10"))
+    DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "20"))
+    DB_POOL_RECYCLE: int = int(os.getenv("DB_POOL_RECYCLE", "300"))
+    DB_POOL_TIMEOUT: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+
+    def get_database_url(self) -> str:
+        """
+        Returns normalized database URL.
+        Render PostgreSQL connection strings often begin with 'postgres://',
+        which SQLAlchemy 1.4+ deprecated in favor of 'postgresql://'.
+        """
+        url = (self.DATABASE_URL or "").strip()
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://"):]
+        return url
     
     # Game rules
     MIN_WORD_LENGTH: int = 5

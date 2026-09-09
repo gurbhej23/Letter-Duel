@@ -197,8 +197,8 @@ export default function AuthModal({ isOpen, onClose }) {
 
   return (
     <div className="modal-overlay">
-      <div 
-        className="modal-content" 
+      <div
+        className="modal-content"
         style={{ maxWidth: '480px' }}
       >
         {/* Header */}
@@ -226,8 +226,8 @@ export default function AuthModal({ isOpen, onClose }) {
               </p>
             </div>
           </div>
-          <button 
-            className="btn btn-secondary btn-icon" 
+          <button
+            className="btn btn-secondary btn-icon"
             style={{ width: '38px', height: '38px', minWidth: '38px', minHeight: '38px' }}
             onClick={() => { playClick(); setWelcomeBonusData(null); onClose(); }}
             title="Close"
@@ -310,363 +310,363 @@ export default function AuthModal({ isOpen, onClose }) {
               marginBottom: '20px',
               border: '1px solid var(--border-subtle)'
             }}>
-          <button
-            type="button"
-            className="btn"
-            style={{
-              background: !isRegister ? 'var(--bg-card)' : 'transparent',
-              color: !isRegister ? 'var(--neon-cyan)' : 'var(--text-muted)',
-              border: !isRegister ? '1px solid var(--border-glow)' : '1px solid transparent',
-              boxShadow: 'none',
-              padding: '9px',
-              fontWeight: !isRegister ? '700' : '500',
-              fontSize: '0.92rem'
-            }}
-            onClick={() => { playClick(); setIsRegister(false); setError(''); }}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            className="btn"
-            style={{
-              background: isRegister ? 'var(--bg-card)' : 'transparent',
-              color: isRegister ? 'var(--neon-cyan)' : 'var(--text-muted)',
-              border: isRegister ? '1px solid var(--border-glow)' : '1px solid transparent',
-              boxShadow: 'none',
-              padding: '9px',
-              fontWeight: isRegister ? '700' : '500',
-              fontSize: '0.92rem'
-            }}
-            onClick={() => { playClick(); setIsRegister(true); setError(''); }}
-          >
-            Create Account
-          </button>
-        </div>
-
-        {/* Welcome Bonus Callout on Registration */}
-        {isRegister && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.15), rgba(255, 179, 0, 0.05))',
-            border: '1px solid rgba(255, 179, 0, 0.35)',
-            borderRadius: 'var(--radius-md)',
-            padding: '10px 14px',
-            marginBottom: '14px',
-            boxShadow: 'none'
-          }}>
-            <span style={{ fontSize: '1.4rem' }}>🎁</span>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#ffc107' }}>
-                +500 Coins Welcome Gift!
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Start your dueling career with free match stakes and level progression rewards.
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error Alert */}
-        {error && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            background: 'rgba(255, 42, 109, 0.12)',
-            border: '1px solid rgba(255, 42, 109, 0.4)',
-            color: '#ff6b8b',
-            padding: '11px 14px',
-            borderRadius: 'var(--radius-md)',
-            fontSize: '0.88rem',
-            marginBottom: '18px',
-            animation: 'shake 0.3s ease'
-          }}>
-            <AlertCircle size={18} style={{ flexShrink: 0 }} />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Avatar Selector during Registration */}
-          {isRegister && (
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '600' }}>
-                Choose Duelist Avatar
-              </label>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
-                {AVATAR_OPTIONS.map((av) => {
-                  const isSelected = selectedAvatar === av.id;
-                  return (
-                    <button
-                      key={av.id}
-                      type="button"
-                      onClick={() => { playClick(); setSelectedAvatar(av.id); }}
-                      title={av.label}
-                      style={{
-                        flex: 1,
-                        padding: '8px 4px',
-                        background: isSelected ? 'var(--neon-cyan-glow)' : 'var(--bg-surface-elevated)',
-                        border: isSelected ? '2px solid var(--neon-cyan)' : '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-md)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '4px',
-                        transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                        transition: 'all 0.2s ease'
-                      }}
-                    >
-                      <span style={{ fontSize: '1.3rem' }}>{av.icon}</span>
-                      <span style={{ fontSize: '0.65rem', color: isSelected ? 'var(--neon-cyan)' : 'var(--text-muted)' }}>
-                        {av.label.split(' ')[1]}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Username */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>
-              {isRegister ? 'Username' : 'Username or Email'}
-            </label>
-            <div style={{ position: 'relative' }}>
-              <User size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={isRegister ? "e.g. CyberKnight" : "Enter username or email"}
-                autoComplete={isRegister ? "username" : "username email"}
-                style={{
-                  width: '100%',
-                  padding: '12px 14px 12px 40px',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--input-border)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--input-text)',
-                  outline: 'none',
-                  fontSize: '0.92rem',
-                  transition: 'border-color 0.2s ease'
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Email (Register only) */}
-          {isRegister && (
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>
-                Email Address
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Mail size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="player@example.com"
-                  autoComplete="email"
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px 12px 40px',
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'var(--input-text)',
-                    outline: 'none',
-                    fontSize: '0.92rem'
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Password */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>
-              Password
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete={isRegister ? "new-password" : "current-password"}
-                style={{
-                  width: '100%',
-                  padding: '12px 42px 12px 40px',
-                  background: 'var(--input-bg)',
-                  border: '1px solid var(--input-border)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--input-text)',
-                  outline: 'none',
-                  fontSize: '0.92rem'
-                }}
-              />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                className="btn"
                 style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '12px',
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#64748b',
-                  cursor: 'pointer',
-                  padding: '4px'
+                  background: !isRegister ? 'var(--bg-card)' : 'transparent',
+                  color: !isRegister ? 'var(--neon-cyan)' : 'var(--text-muted)',
+                  border: !isRegister ? '1px solid var(--border-glow)' : '1px solid transparent',
+                  boxShadow: 'none',
+                  padding: '9px',
+                  fontWeight: !isRegister ? '700' : '500',
+                  fontSize: '0.92rem'
                 }}
-                title={showPassword ? "Hide password" : "Show password"}
+                onClick={() => { playClick(); setIsRegister(false); setError(''); }}
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                Sign In
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  background: isRegister ? 'var(--bg-card)' : 'transparent',
+                  color: isRegister ? 'var(--neon-cyan)' : 'var(--text-muted)',
+                  border: isRegister ? '1px solid var(--border-glow)' : '1px solid transparent',
+                  boxShadow: 'none',
+                  padding: '9px',
+                  fontWeight: isRegister ? '700' : '500',
+                  fontSize: '0.92rem'
+                }}
+                onClick={() => { playClick(); setIsRegister(true); setError(''); }}
+              >
+                Create Account
               </button>
             </div>
 
-            {/* Password Strength Meter (Register only) */}
-            {isRegister && password && (
-              <div style={{ marginTop: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '4px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Strength</span>
-                  <span style={{ color: strength.color, fontWeight: '700' }}>{strength.label}</span>
-                </div>
-                <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{
-                    width: `${strength.score}%`,
-                    height: '100%',
-                    background: strength.color,
-                    transition: 'width 0.3s ease, background 0.3s ease'
-                  }} />
+            {/* Welcome Bonus Callout on Registration */}
+            {isRegister && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.15), rgba(255, 179, 0, 0.05))',
+                border: '1px solid rgba(255, 179, 0, 0.35)',
+                borderRadius: 'var(--radius-md)',
+                padding: '10px 14px',
+                marginBottom: '14px',
+                boxShadow: 'none'
+              }}>
+                <span style={{ fontSize: '1.4rem' }}>🎁</span>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#ffc107' }}>
+                    +500 Coins Welcome Gift!
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Start your dueling career with free match stakes and level progression rewards.
+                  </div>
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Confirm Password (Register only) */}
-          {isRegister && (
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>
-                Confirm Password
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  style={{
-                    width: '100%',
-                    padding: '12px 42px 12px 40px',
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--input-border)',
-                    borderRadius: 'var(--radius-md)',
-                    color: 'var(--input-text)',
-                    outline: 'none',
-                    fontSize: '0.92rem'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '12px',
-                    top: '12px',
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#64748b',
-                    cursor: 'pointer',
-                    padding: '4px'
-                  }}
-                  title={showConfirmPassword ? "Hide password" : "Show password"}
-                >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+            {/* Error Alert */}
+            {error && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: 'rgba(255, 42, 109, 0.12)',
+                border: '1px solid rgba(255, 42, 109, 0.4)',
+                color: '#ff6b8b',
+                padding: '11px 14px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.88rem',
+                marginBottom: '18px',
+                animation: 'shake 0.3s ease'
+              }}>
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <span>{error}</span>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Remember Me */}
-          {!isRegister && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  style={{ accentColor: 'var(--neon-cyan)', cursor: 'pointer', width: '16px', height: '16px' }}
-                />
-                Remember me for 7 days
-              </label>
-            </div>
-          )}
+            {/* Form */}
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Avatar Selector during Registration */}
+              {isRegister && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '600' }}>
+                    Choose Duelist Avatar
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                    {AVATAR_OPTIONS.map((av) => {
+                      const isSelected = selectedAvatar === av.id;
+                      return (
+                        <button
+                          key={av.id}
+                          type="button"
+                          onClick={() => { playClick(); setSelectedAvatar(av.id); }}
+                          title={av.label}
+                          style={{
+                            flex: 1,
+                            padding: '8px 4px',
+                            background: isSelected ? 'var(--neon-cyan-glow)' : 'var(--bg-surface-elevated)',
+                            border: isSelected ? '2px solid var(--neon-cyan)' : '1px solid var(--border-subtle)',
+                            borderRadius: 'var(--radius-md)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          <span style={{ fontSize: '1.3rem' }}>{av.icon}</span>
+                          <span style={{ fontSize: '0.65rem', color: isSelected ? 'var(--neon-cyan)' : 'var(--text-muted)' }}>
+                            {av.label.split(' ')[1]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-          {/* 3D Interactive Submit Button */}
-          <button 
-            type="submit" 
-            className="btn btn-primary btn-3d" 
-            disabled={loading}
-            onClick={handleBtn3DClick}
-            style={{
-              padding: '14px',
-              fontSize: '1rem',
-              fontWeight: '700',
-              marginTop: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              position: 'relative',
-              overflow: 'hidden',
-              cursor: loading ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {/* Dynamic 3D click ripple elements */}
-            {ripples.map((ripple) => (
-              <span
-                key={ripple.id}
-                className="ripple-3d"
+              {/* Username */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>
+                  {isRegister ? 'Username' : 'Username or Email'}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <User size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder={isRegister ? "e.g. CyberKnight" : "Enter username or email"}
+                    autoComplete={isRegister ? "username" : "username email"}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px 12px 40px',
+                      background: 'var(--input-bg)',
+                      border: '1px solid var(--input-border)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--input-text)',
+                      outline: 'none',
+                      fontSize: '0.92rem',
+                      transition: 'border-color 0.2s ease'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Email (Register only) */}
+              {isRegister && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>
+                    Email Address
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <Mail size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="player@example.com"
+                      autoComplete="email"
+                      style={{
+                        width: '100%',
+                        padding: '12px 14px 12px 40px',
+                        background: 'var(--input-bg)',
+                        border: '1px solid var(--input-border)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--input-text)',
+                        outline: 'none',
+                        fontSize: '0.92rem'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Password */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>
+                  Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Lock size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={isRegister ? "new-password" : "current-password"}
+                    placeholder="enter a password"
+                    style={{
+                      width: '100%',
+                      padding: '12px 42px 12px 40px',
+                      background: 'var(--input-bg)',
+                      border: '1px solid var(--input-border)',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--input-text)',
+                      outline: 'none',
+                      fontSize: '0.92rem'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '12px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#64748b',
+                      cursor: 'pointer',
+                      padding: '4px'
+                    }}
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+
+                {/* Password Strength Meter (Register only) */}
+                {isRegister && password && (
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '4px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Strength</span>
+                      <span style={{ color: strength.color, fontWeight: '700' }}>{strength.label}</span>
+                    </div>
+                    <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${strength.score}%`,
+                        height: '100%',
+                        background: strength.color,
+                        transition: 'width 0.3s ease, background 0.3s ease'
+                      }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Confirm Password (Register only) */}
+              {isRegister && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>
+                    Confirm Password
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="enter a password"
+                      autoComplete="new-password"
+                      style={{
+                        width: '100%',
+                        padding: '12px 42px 12px 40px',
+                        background: 'var(--input-bg)',
+                        border: '1px solid var(--input-border)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--input-text)',
+                        outline: 'none',
+                        fontSize: '0.92rem'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '12px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#64748b',
+                        cursor: 'pointer',
+                        padding: '4px'
+                      }}
+                      title={showConfirmPassword ? "Hide password" : "Show password"}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Remember Me */}
+              {!isRegister && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      style={{ accentColor: 'var(--neon-cyan)', cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                    Remember me for 7 days
+                  </label>
+                </div>
+              )}
+
+              {/* 3D Interactive Submit Button */}
+              <button
+                type="submit"
+                className="btn btn-primary btn-3d"
+                disabled={loading}
+                onClick={handleBtn3DClick}
                 style={{
-                  left: `${ripple.x}px`,
-                  top: `${ripple.y}px`
+                  padding: '14px',
+                  fontSize: '1rem',
+                  fontWeight: '700',
+                  marginTop: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  cursor: loading ? 'not-allowed' : 'pointer'
                 }}
-              />
-            ))}
+              >
+                {/* Dynamic 3D click ripple elements */}
+                {ripples.map((ripple) => (
+                  <span
+                    key={ripple.id}
+                    className="ripple-3d"
+                    style={{
+                      left: `${ripple.x}px`,
+                      top: `${ripple.y}px`
+                    }}
+                  />
+                ))}
 
-            {loading ? (
-              <>
-                <div className="spinner-3d-wrapper" style={{ width: '22px', height: '22px' }}>
-                  <div className="spinner-3d-ring1" />
-                  <div className="spinner-3d-ring2" />
-                  <div style={{
-                    position: 'absolute',
-                    inset: '6px',
-                    borderRadius: '50%',
-                    background: '#00f2fe',
-                    boxShadow: '0 0 8px #00f2fe'
-                  }} />
-                </div>
-                <span>{isRegister ? 'Forging Profile in Cyber Matrix...' : 'Authorizing Arena Clearance...'}</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={18} style={{ filter: 'drop-shadow(0 0 6px #00f2fe)' }} />
-                <span>{isRegister ? 'Create Account & Enter Arena' : 'Sign In to Arena'}</span>
-              </>
-            )}
-          </button>
-        </form>
+                {loading ? (
+                  <>
+                    <div className="spinner-3d-wrapper" style={{ width: '22px', height: '22px' }}>
+                      <div className="spinner-3d-ring1" />
+                      <div className="spinner-3d-ring2" />
+                      <div style={{
+                        position: 'absolute',
+                        inset: '6px',
+                        borderRadius: '50%',
+                        background: '#00f2fe',
+                        boxShadow: '0 0 8px #00f2fe'
+                      }} />
+                    </div>
+                    <span>{isRegister ? 'Forging Profile in Cyber Matrix...' : 'Authorizing Arena Clearance...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} style={{ filter: 'drop-shadow(0 0 6px #00f2fe)' }} />
+                    <span>{isRegister ? 'Create Account & Enter Arena' : 'Sign In to Arena'}</span>
+                  </>
+                )}
+              </button>
+            </form>
           </>
         )}
       </div>
