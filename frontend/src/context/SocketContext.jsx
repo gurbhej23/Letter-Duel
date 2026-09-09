@@ -17,6 +17,8 @@ export function SocketProvider({ children }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [typingUser, setTypingUser] = useState(null);
   const [disconnectTimer, setDisconnectTimer] = useState(null);
+  const [opponentDisconnected, setOpponentDisconnected] = useState(null);
+  const [opponentReconnectedNotice, setOpponentReconnectedNotice] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [serverClockOffset, setServerClockOffset] = useState(0);
 
@@ -27,6 +29,8 @@ export function SocketProvider({ children }) {
     localStorage.getItem('letter_duel_room_code') || sessionStorage.getItem('letter_duel_room_code') || null
   );
   const prevTurnPlayerIdRef = useRef(null);
+  const prevTurnNumberRef = useRef(null);
+  const latestStateVersionRef = useRef(0);
 
   const addToast = useCallback((message, type = "info") => {
     if (!message) return;
@@ -124,6 +128,10 @@ export function SocketProvider({ children }) {
     sessionStorage.setItem('letter_duel_room_code', cleanCode);
     localStorage.setItem('letter_duel_room_code', cleanCode);
     setCurrentRoomCode(cleanCode);
+    prevTurnNumberRef.current = null;
+    latestStateVersionRef.current = 0;
+    setOpponentDisconnected(null);
+    setOpponentReconnectedNotice(null);
 
     if (wsRef.current) {
       intentionalCloseRef.current = true;
@@ -165,6 +173,13 @@ export function SocketProvider({ children }) {
           }
         }
         else if (type === "game_state" || type === "game_state_sync") {
+          if (typeof data.state_version === 'number' && data.state_version < latestStateVersionRef.current) {
+            return; // Ignore stale out-of-order packet
+          }
+          if (typeof data.state_version === 'number') {
+            latestStateVersionRef.current = data.state_version;
+          }
+
           setGameState(data);
           
           if (data.server_time) {
@@ -172,12 +187,26 @@ export function SocketProvider({ children }) {
             setServerClockOffset(offset);
           }
 
-          // Detect turn switch to current player
-          if (data.current_turn_player_id === user?.id && prevTurnPlayerIdRef.current !== user?.id) {
+          // Detect REAL turn switch to current player
+          // Only fire audio/toast when:
+          // 1. prevTurnNumberRef is not null (so NOT on initial load or page reconnect)
+          // 2. data.turn_number > prevTurnNumberRef.current
+          // 3. current_turn_player_id is this user
+          // 4. Game state is PLAYING
+          if (
+            data.state === "PLAYING" &&
+            prevTurnNumberRef.current !== null &&
+            typeof data.turn_number === 'number' &&
+            data.turn_number > prevTurnNumberRef.current &&
+            data.current_turn_player_id === user?.id
+          ) {
             sound.playTurnChange();
             addToast("It's YOUR turn! Guess a letter or the full word.", "primary");
           }
           prevTurnPlayerIdRef.current = data.current_turn_player_id;
+          if (typeof data.turn_number === 'number') {
+            prevTurnNumberRef.current = data.turn_number;
+          }
         }
         else if (type === "chat_history") {
           if (Array.isArray(data)) {
@@ -234,14 +263,19 @@ export function SocketProvider({ children }) {
           }
         }
         else if (type === "opponent_disconnected") {
-          addToast(data.message, "warning");
+          setOpponentDisconnected(data);
           setDisconnectTimer(data.grace_seconds || 60);
+          addToast(data.message, "warning");
         }
-        else if (type === "reconnected") {
-          if (data.player_id && data.player_id !== user?.id) {
-            addToast(data.message, "success");
-          }
+        else if (type === "opponent_reconnected" || type === "reconnected") {
+          setOpponentDisconnected(null);
           setDisconnectTimer(null);
+          if (data.player_id && data.player_id !== user?.id) {
+            setOpponentReconnectedNotice(data.message || "Opponent reconnected ✓ Game resumed");
+            setTimeout(() => {
+              setOpponentReconnectedNotice(null);
+            }, 4000);
+          }
         }
         else if (type === "player_left") {
           addToast(data.message || "Player left the room.", "warning");
@@ -359,6 +393,10 @@ export function SocketProvider({ children }) {
     setGameState(null);
     setChatMessages([]);
     setDisconnectTimer(null);
+    setOpponentDisconnected(null);
+    setOpponentReconnectedNotice(null);
+    prevTurnNumberRef.current = null;
+    latestStateVersionRef.current = 0;
   }, [token, currentRoomCode]);
 
   const disconnect = useCallback(() => {
@@ -482,6 +520,8 @@ export function SocketProvider({ children }) {
       typingUser,
       onlineCount,
       disconnectTimer,
+      opponentDisconnected,
+      opponentReconnectedNotice,
       serverClockOffset,
       toasts,
       connectToRoom,
@@ -489,7 +529,9 @@ export function SocketProvider({ children }) {
       leaveRoom,
       sendEvent,
       sendChatMessage,
-      addToast
+      addToast,
+      setOpponentDisconnected,
+      setOpponentReconnectedNotice
     }}>
       {children}
     </SocketContext.Provider>

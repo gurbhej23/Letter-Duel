@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { X, Lock, Mail, User, ShieldCheck, Eye, EyeOff, Sparkles, Loader2, AlertCircle, Check } from 'lucide-react';
 
 const AVATAR_OPTIONS = [
@@ -27,6 +28,7 @@ function getPasswordStrength(pass) {
 }
 
 export default function AuthModal({ isOpen, onClose }) {
+  useBodyScrollLock(isOpen);
   const { login } = useAuth();
   const { playClick, playHit, playMiss } = useSound();
 
@@ -194,10 +196,9 @@ export default function AuthModal({ isOpen, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div 
         className="modal-content" 
-        onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: '480px' }}
       >
         {/* Header */}

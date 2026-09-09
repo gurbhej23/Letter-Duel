@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { useTheme } from '../context/ThemeContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Menu, X, AlertTriangle, Loader2, Sun, Moon } from 'lucide-react';
 import { getRankMeta } from '../utils/rankUtils';
 
@@ -16,6 +17,8 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const drawerRef = useRef(null);
+
+  useBodyScrollLock(showLeaveConfirm);
 
   const userRank = user?.rank || 'Bronze III';
   const rankMeta = getRankMeta(userRank);
@@ -451,14 +454,7 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
 
       {/* Leave Match Confirmation Modal Popup (Portaled to body with rich animations) */}
       {showLeaveConfirm && typeof document !== 'undefined' && createPortal(
-        <div 
-          className="leave-modal-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isLoggingOut) {
-              handleCancelLeave();
-            }
-          }}
-        >
+        <div className="leave-modal-overlay">
           <div className="leave-modal-card card-3d-tilt">
             {/* Pulsing Warning Radar Badge */}
             <div className="leave-warning-badge">

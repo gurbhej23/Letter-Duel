@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Swords, RefreshCw, LogOut, Clock, ShieldCheck, Bot } from 'lucide-react';
 import { useSound } from '../context/SoundContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
 export default function ActiveMatchModal({ activeMatch, onRejoin, onLeave }) {
+  const isOpen = Boolean(activeMatch && activeMatch.active);
+  useBodyScrollLock(isOpen);
   const sound = useSound();
   const [secondsRemaining, setSecondsRemaining] = useState(activeMatch?.remaining_seconds || 60);
   const [isExpired, setIsExpired] = useState(false);

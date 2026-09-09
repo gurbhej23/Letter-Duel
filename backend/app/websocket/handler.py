@@ -313,14 +313,29 @@ async def bot_turn_worker(session: RoomSession):
 
 def start_turn_timer(session: RoomSession):
     """
-    Starts an authoritative 30-second timer for the current player's turn.
+    Starts or ensures an authoritative timer for the current player's turn.
     If the player does not guess within 30s, the turn automatically switches to the other player.
-    If the active player is an online simulated challenger (bot), runs bot_turn_worker.
+    Tagged with (turn_number, current_turn_player_id, turn_started_at) to prevent stale timer races.
     """
-    cancel_turn_timer(session)
-
     if not session.game or session.game.state != "PLAYING":
+        cancel_turn_timer(session)
         return
+
+    cur_turn = session.game.turn_number
+    cur_player = session.game.current_turn_player_id
+    cur_started = session.game.turn_started_at
+
+    # If an active timer task is already running for this exact turn, do not reset it
+    if (
+        session.turn_timer_task
+        and not session.turn_timer_task.done()
+        and session.active_turn_timer_info
+        and session.active_turn_timer_info.get("turn_number") == cur_turn
+        and session.active_turn_timer_info.get("current_turn_player_id") == cur_player
+    ):
+        return
+
+    cancel_turn_timer(session)
 
     try:
         loop = asyncio.get_running_loop()
@@ -329,13 +344,40 @@ def start_turn_timer(session: RoomSession):
 
     # If it's the bot's turn, execute bot turn worker
     if session.game.is_bot_opponent and session.game.current_turn_player_id == 99999:
+        session.active_turn_timer_info = {
+            "turn_number": cur_turn,
+            "current_turn_player_id": cur_player,
+            "turn_started_at": cur_started
+        }
         session.turn_timer_task = loop.create_task(bot_turn_worker(session))
         return
 
-    async def turn_timer_worker():
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if cur_started:
+        deadline = cur_started + datetime.timedelta(seconds=session.game.turn_timeout_seconds)
+        sleep_seconds = max(0.1, (deadline - now).total_seconds())
+    else:
+        sleep_seconds = float(session.game.turn_timeout_seconds)
+
+    timer_info = {
+        "turn_number": cur_turn,
+        "current_turn_player_id": cur_player,
+        "turn_started_at": cur_started
+    }
+    session.active_turn_timer_info = timer_info
+    logger.info(f"[TURN_TIMER_START] Room {session.room_code} Turn {cur_turn} Player {cur_player} sleeping {sleep_seconds:.1f}s")
+
+    async def turn_timer_worker(task_info: dict, wait_time: float):
         try:
-            await asyncio.sleep(session.game.turn_timeout_seconds)
-            if session.game and session.game.state == "PLAYING":
+            await asyncio.sleep(wait_time)
+            # Authoritative check: ensure game state, turn number, and player haven't shifted during sleep
+            if (
+                session.game
+                and session.game.state == "PLAYING"
+                and session.game.turn_number == task_info["turn_number"]
+                and session.game.current_turn_player_id == task_info["current_turn_player_id"]
+            ):
+                logger.info(f"[TURN_TIMER_EXPIRE] Room {session.room_code} Turn {task_info['turn_number']} timed out for Player {task_info['current_turn_player_id']}")
                 ok, timeout_data, notice = session.game.timeout_turn()
                 if ok:
                     await broadcast_to_room(session, "turn_timeout", timeout_data)
@@ -361,12 +403,14 @@ def start_turn_timer(session: RoomSession):
                         start_turn_timer(session)
 
                     await send_sync_states(session)
+            else:
+                logger.info(f"[TURN_TIMER_STALE_IGNORED] Room {session.room_code} Task turn {task_info['turn_number']} vs game turn {getattr(session.game, 'turn_number', None)}")
         except asyncio.CancelledError:
-            pass
+            logger.info(f"[TURN_TIMER_CANCELLED] Room {session.room_code} Turn {task_info['turn_number']}")
         except Exception as e:
-            logger.error(f"Error in turn_timer_worker: {e}")
+            logger.error(f"Error in turn_timer_worker: {e}", exc_info=True)
 
-    session.turn_timer_task = loop.create_task(turn_timer_worker())
+    session.turn_timer_task = loop.create_task(turn_timer_worker(timer_info, sleep_seconds))
 
 def persist_game_end_to_db(session: RoomSession, db: Session):
     """Save finalized match results, XP, win/loss stats, and guess history to SQLite/PostgreSQL."""
@@ -542,9 +586,11 @@ async def handle_disconnect_grace_period(session: RoomSession, disconnected_play
     """Wait 60s for reconnection; if expired, opponent wins by forfeit."""
     try:
         await asyncio.sleep(settings.DISCONNECT_TIMEOUT_SECONDS)
-        # If player is still not in connections
-        if disconnected_player_id not in session.connections and session.game and session.game.state != "GAME_OVER":
+        # If player is still not connected
+        is_connected = session.player_connected.get(disconnected_player_id, False) or (disconnected_player_id in session.connections)
+        if not is_connected and session.game and session.game.state != "GAME_OVER":
             logger.info(f"Player {disconnected_player_id} did not reconnect within 60s. Forfeiting.")
+            cancel_turn_timer(session)
             ok, forfeit_data = session.game.forfeit(disconnected_player_id, reason="FORFEIT_DISCONNECT")
             if ok:
                 with SessionLocal() as db:
@@ -613,6 +659,11 @@ async def websocket_room_endpoint(
         elif db_room and hasattr(db_room, "entry_fee") and db_room.entry_fee:
             session.entry_fee = db_room.entry_fee
 
+        # Track monotonic connection generations to ignore stale socket drops
+        conn_gen = session.connection_generations.get(player_id, 0) + 1
+        session.connection_generations[player_id] = conn_gen
+        session.player_connected[player_id] = True
+
         # Check if returning / reconnecting
         is_reconnect = False
         if player_id in session.disconnect_tasks:
@@ -620,7 +671,10 @@ async def websocket_room_endpoint(
             if not task.done():
                 task.cancel()
             is_reconnect = True
-            logger.info(f"Player {user.username} reconnected before forfeit timer.")
+            logger.info(f"[WS_RECONNECT] Player {user.username} reconnected before forfeit timer (gen={conn_gen}).")
+        elif session.game and session.game.state in ("PLAYING", "WORD_SELECTION"):
+            is_reconnect = True
+            logger.info(f"[WS_RECONNECT] Player {user.username} reconnected to active match (gen={conn_gen}).")
 
         session.connections[player_id] = websocket
 
@@ -687,11 +741,19 @@ async def websocket_room_endpoint(
 
         # Notify room of join/reconnect (exclude sender from receiving their own notification)
         if is_reconnect:
+            await broadcast_to_room(session, "opponent_reconnected", {
+                "player_id": player_id,
+                "username": user.username,
+                "message": f"{user.username} reconnected. Game resumed."
+            }, sender_ws=websocket)
             await broadcast_to_room(session, "reconnected", {
                 "player_id": player_id,
                 "username": user.username,
                 "message": f"{user.username} has reconnected to the duel."
             }, sender_ws=websocket)
+            # Ensure turn timer is actively ticking if game is in PLAYING state
+            if session.game and session.game.state == "PLAYING":
+                start_turn_timer(session)
         else:
             await broadcast_to_room(session, "player_joined", {
                 "player_id": player_id,
@@ -994,22 +1056,29 @@ async def websocket_room_endpoint(
     finally:
         # Handle disconnect cleanup
         if user and session:
-            session.connections.pop(user.id, None)
-            session.typing_players.discard(user.id)
-            
-            was_explicit = user.id in session.explicit_leaves
-            
-            # Only start the 60s disconnect grace period if it was an unexpected drop during active game
-            if not was_explicit and session.game and session.game.state in ("PLAYING", "WORD_SELECTION"):
-                await broadcast_to_room(session, "opponent_disconnected", {
-                    "player_id": user.id,
-                    "username": user.username,
-                    "grace_seconds": settings.DISCONNECT_TIMEOUT_SECONDS,
-                    "message": f"{user.username} disconnected. Waiting {settings.DISCONNECT_TIMEOUT_SECONDS}s to reconnect..."
-                })
-                loop = asyncio.get_event_loop()
-                task = loop.create_task(handle_disconnect_grace_period(session, user.id))
-                session.disconnect_tasks[user.id] = task
+            current_gen = session.connection_generations.get(user.id, 0)
+            if current_gen != conn_gen:
+                logger.info(f"[WS_DISCONNECT_IGNORED] Ignoring stale disconnect for {user.username} (conn_gen={conn_gen} vs active={current_gen})")
+            else:
+                session.player_connected[user.id] = False
+                session.connections.pop(user.id, None)
+                session.typing_players.discard(user.id)
+                
+                was_explicit = user.id in session.explicit_leaves
+                logger.info(f"[WS_DISCONNECT] Player {user.username} disconnected (gen={conn_gen}, explicit={was_explicit})")
+                
+                # Only start the 60s disconnect grace period if it was an unexpected drop during active game
+                # NOTE: We do NOT cancel session.turn_timer_task! Turn timer runs authoritatively.
+                if not was_explicit and session.game and session.game.state in ("PLAYING", "WORD_SELECTION"):
+                    await broadcast_to_room(session, "opponent_disconnected", {
+                        "player_id": user.id,
+                        "username": user.username,
+                        "grace_seconds": settings.DISCONNECT_TIMEOUT_SECONDS,
+                        "message": f"{user.username} disconnected. Waiting {settings.DISCONNECT_TIMEOUT_SECONDS}s to reconnect..."
+                    })
+                    loop = asyncio.get_event_loop()
+                    task = loop.create_task(handle_disconnect_grace_period(session, user.id))
+                    session.disconnect_tasks[user.id] = task
 
         if user:
             from app.game.presence import presence_manager

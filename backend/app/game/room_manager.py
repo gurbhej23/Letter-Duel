@@ -46,14 +46,19 @@ class RoomSession:
 
         # Connected WebSockets: player_id -> WebSocket
         self.connections: Dict[int, WebSocket] = {}
+        # Connection generations for overlapping reconnect protection: player_id -> int
+        self.connection_generations: Dict[int, int] = {}
+        # Authoritative player presence in room: player_id -> bool
+        self.player_connected: Dict[int, bool] = {}
         
         # Disconnect timers: player_id -> asyncio.Task
         self.disconnect_tasks: Dict[int, asyncio.Task] = {}
         self.disconnect_start_time: Dict[int, float] = {}
         self.disconnect_deadlines: Dict[int, float] = {}
 
-        # Turn timer: 1 minute (60s) per guess
+        # Turn timer: authoritative async task per turn
         self.turn_timer_task: Optional[asyncio.Task] = None
+        self.active_turn_timer_info: Optional[dict] = None
 
         # Typing indicators: set of player_ids currently typing
         self.typing_players: Set[int] = set()

@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { X, Users, UserPlus, Check, Trash2, Send, Search, Copy, Swords, Shield, Flame, CheckCircle2 } from 'lucide-react';
 
 export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChallengeCreated }) {
+  useBodyScrollLock(isOpen);
   const { user, token } = useAuth();
   const sound = useSound();
   const { playClick, playHit, playMiss } = sound;
@@ -214,8 +216,8 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChall
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content card-3d-tilt" style={{ maxWidth: '540px' }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-content card-3d-tilt" style={{ maxWidth: '540px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

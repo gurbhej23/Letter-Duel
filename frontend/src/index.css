@@ -335,7 +335,7 @@ textarea::placeholder {
   padding-top: max(16px, env(safe-area-inset-top));
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   animation: fadeIn 0.2s ease-out;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .modal-content {
@@ -345,9 +345,10 @@ textarea::placeholder {
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 500px;
-  max-height: calc(100dvh - 32px);
+  max-height: min(90vh, 90dvh);
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   padding: clamp(18px, 4vw, 28px);
   box-shadow: var(--shadow-lg);
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);

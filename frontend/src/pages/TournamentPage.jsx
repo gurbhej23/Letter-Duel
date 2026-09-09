@@ -20,9 +20,11 @@ import {
   Clock,
   Flag,
   AlertTriangle,
-  Timer
+  Timer,
+  X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
 export default function TournamentPage({ onBackToHome, onEnterMatch }) {
   const { user, token } = useAuth();
@@ -39,6 +41,8 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
   const [chatInput, setChatInput] = useState('');
   const [showChampionModal, setShowChampionModal] = useState(false);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
+
+  useBodyScrollLock(showChampionModal || showForfeitModal);
 
   const wsRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -722,7 +726,7 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
 
       {/* Grand Champion Celebration Modal */}
       {showChampionModal && tournament?.status === 'FINISHED' && (
-        <div className="modal-overlay" onClick={() => setShowChampionModal(false)}>
+        <div className="modal-overlay">
           <div
             className="modal-content"
             style={{
@@ -731,10 +735,19 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
               padding: '36px 24px',
               background: 'radial-gradient(circle, rgba(255, 179, 0, 0.25) 0%, var(--modal-bg) 80%)',
               border: '2px solid #ffb300',
-              boxShadow: '0 0 50px rgba(255, 179, 0, 0.35)'
+              boxShadow: '0 0 50px rgba(255, 179, 0, 0.35)',
+              position: 'relative'
             }}
-            onClick={(e) => e.stopPropagation()}
           >
+            <button
+              type="button"
+              className="btn btn-secondary btn-icon"
+              style={{ position: 'absolute', top: '14px', right: '14px', width: '32px', height: '32px' }}
+              onClick={() => setShowChampionModal(false)}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
             <div style={{ position: 'relative', display: 'inline-block', marginBottom: '14px' }}>
               <Trophy size={68} color="#ffb300" style={{ filter: 'drop-shadow(0 0 20px #ffb300)', animation: 'float3D 4s ease-in-out infinite' }} />
               <Crown size={30} color="#fff" style={{ position: 'absolute', top: '-14px', right: '-8px' }} />
@@ -790,7 +803,7 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
 
       {/* Forfeit Confirmation Modal */}
       {showForfeitModal && (
-        <div className="modal-overlay" onClick={() => setShowForfeitModal(false)}>
+        <div className="modal-overlay">
           <div
             className="modal-content"
             style={{
@@ -801,7 +814,6 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
               border: '1px solid rgba(255, 42, 109, 0.45)',
               boxShadow: '0 0 35px rgba(255, 42, 109, 0.2)'
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div style={{ color: '#ff2a6d', marginBottom: '12px' }}>
               <AlertTriangle size={48} style={{ filter: 'drop-shadow(0 0 10px #ff2a6d)' }} />

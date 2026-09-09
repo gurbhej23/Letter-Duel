@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart, Lightbulb } from 'lucide-react';
+import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart, Lightbulb, X } from 'lucide-react';
 import { getRankMeta } from '../utils/rankUtils';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
 const ALPHABET_ROWS = [
   ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],
@@ -15,10 +16,22 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const { user, refreshUser } = useAuth();
   const sound = useSound();
   const { playClick, playKey, playHit, playMiss } = sound;
-  const { gameState, sendEvent, sendChatMessage, chatMessages, typingUser, disconnectTimer, serverClockOffset, leaveRoom } = useSocket();
+  const { 
+    gameState, 
+    sendEvent, 
+    sendChatMessage, 
+    chatMessages, 
+    typingUser, 
+    disconnectTimer, 
+    opponentDisconnected,
+    opponentReconnectedNotice,
+    serverClockOffset, 
+    leaveRoom 
+  } = useSocket();
 
   const [fullWordInput, setFullWordInput] = useState('');
   const [showFullWordModal, setShowFullWordModal] = useState(false);
+  const [showWaitBanner, setShowWaitBanner] = useState(true);
   const [chatInput, setChatInput] = useState('');
   const [mobileTab, setMobileTab] = useState('arena'); // 'arena' | 'chat'
   const [secondsLeft, setSecondsLeft] = useState(30);
@@ -27,6 +40,16 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   const lastTypingSentRef = useRef(0);
 
   const lastBeepedSecRef = useRef(null);
+
+  // Lock body scroll when full word modal is open
+  useBodyScrollLock(showFullWordModal);
+
+  // Reset showWaitBanner whenever disconnectTimer clears
+  useEffect(() => {
+    if (disconnectTimer === null && !opponentDisconnected) {
+      setShowWaitBanner(true);
+    }
+  }, [disconnectTimer, opponentDisconnected]);
 
   // Auto-scroll chat box on new messages or typing indicator
   useEffect(() => {
@@ -204,25 +227,78 @@ export default function GameArena({ roomCode, onLeaveGame }) {
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: 'clamp(12px, 2.5vw, 20px) clamp(10px, 2vw, 16px)' }}>
-      {/* 60s Disconnect Banner */}
-      {disconnectTimer !== null && (
+      {/* Non-blocking Opponent Disconnected Banner */}
+      {(disconnectTimer !== null || opponentDisconnected) && showWaitBanner && (
         <div style={{
-          background: 'linear-gradient(90deg, #ff2a6d 0%, #ff5e62 100%)',
-          color: '#fff',
-          padding: '12px 20px',
+          background: 'rgba(255, 179, 0, 0.12)',
+          border: '1px solid rgba(255, 179, 0, 0.5)',
+          backdropFilter: 'blur(10px)',
           borderRadius: 'var(--radius-md)',
-          textAlign: 'center',
-          fontWeight: '700',
+          padding: '12px 18px',
           marginBottom: '16px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          gap: '10px',
-          boxShadow: 'var(--shadow-rose)',
-          fontSize: '0.9rem'
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          color: '#ffb300',
+          boxShadow: '0 0 20px rgba(255, 179, 0, 0.15)'
         }}>
-          <AlertTriangle size={20} style={{ flexShrink: 0 }} />
-          <span>Opponent disconnected! Waiting {disconnectTimer}s to reconnect or victory is yours!</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <AlertTriangle size={20} color="#ffb300" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '0.92rem' }}>
+                Opponent disconnected! Waiting {disconnectTimer ?? 60}s to reconnect...
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                You will automatically win by forfeit if they do not return.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              className="btn btn-ghost"
+              style={{ padding: '6px 14px', fontSize: '0.82rem', borderColor: 'rgba(255, 179, 0, 0.4)', color: '#ffb300' }}
+              onClick={() => setShowWaitBanner(false)}
+            >
+              Wait
+            </button>
+            <button
+              className="btn btn-rose"
+              style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+              onClick={() => {
+                if (window.confirm("Are you sure you want to leave this duel?")) {
+                  leaveRoom(true);
+                  onLeaveGame?.();
+                }
+              }}
+            >
+              <LogOut size={14} /> Leave Game
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Opponent Reconnected Auto-Dismissing Banner */}
+      {opponentReconnectedNotice && (
+        <div style={{
+          background: 'rgba(0, 230, 118, 0.15)',
+          border: '1px solid rgba(0, 230, 118, 0.5)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 18px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          color: '#00e676',
+          fontWeight: '700',
+          fontSize: '0.92rem',
+          boxShadow: '0 0 20px rgba(0, 230, 118, 0.2)',
+          animation: 'fadeIn 0.3s ease'
+        }}>
+          <Check size={20} color="#00e676" style={{ flexShrink: 0 }} />
+          <span>{opponentReconnectedNotice}</span>
         </div>
       )}
 
@@ -305,28 +381,6 @@ export default function GameArena({ roomCode, onLeaveGame }) {
           </button>
         </div>
       </div>
-
-      {/* Opponent Disconnected / Reconnecting Grace Period Alert */}
-      {disconnectTimer !== null && (
-        <div style={{
-          background: 'rgba(255, 179, 0, 0.12)',
-          border: '1px solid #ffb300',
-          borderRadius: 'var(--radius-md)',
-          padding: '12px 18px',
-          marginBottom: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '10px',
-          color: '#ffb300',
-          fontWeight: '700',
-          fontSize: '0.92rem',
-          boxShadow: '0 0 15px rgba(255, 179, 0, 0.2)'
-        }}>
-          <AlertTriangle size={18} color="#ffb300" style={{ flexShrink: 0 }} />
-          <span>Opponent reconnecting... ({disconnectTimer}s grace period remaining)</span>
-        </div>
-      )}
 
       {/* Mobile Tab Switcher (< 1024px) */}
       <div className="mobile-arena-tabs" style={{ display: 'none', marginBottom: '14px', gap: '8px' }}>
@@ -625,8 +679,17 @@ export default function GameArena({ roomCode, onLeaveGame }) {
 
       {/* Full Word Guess Modal */}
       {showFullWordModal && (
-        <div className="modal-overlay" onClick={() => setShowFullWordModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '480px', textAlign: 'center' }}>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '480px', textAlign: 'center', position: 'relative' }}>
+            <button
+              type="button"
+              className="modal-close-btn"
+              onClick={() => setShowFullWordModal(false)}
+              aria-label="Close"
+              style={{ position: 'absolute', top: '14px', right: '14px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <X size={20} />
+            </button>
             <Swords size={36} color="#ffb300" style={{ margin: '0 auto 12px auto' }} />
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: '8px' }}>
               Guess Opponent's Entire Word

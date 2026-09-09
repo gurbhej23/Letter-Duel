@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { X, Swords, CheckCircle2, Zap, ShieldCheck, Lock, AlertCircle, ArrowLeft, Trophy, Star, Bot, RefreshCw } from 'lucide-react';
 import { ARENA_TIERS, getTierForFee, getRecommendedArena } from '../utils/arenaTiers';
 import { isRankEligible, getRankMeta } from '../utils/rankUtils';
 
 export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
+  useBodyScrollLock(isOpen);
   const { user, token } = useAuth();
   const sound = useSound();
   const { playClick, playMiss, playVictory } = sound;
@@ -267,7 +269,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   const recommendedTier = getRecommendedArena(user);
 
   return (
-    <div className="modal-overlay" style={{ backdropFilter: 'blur(16px)', zIndex: 1100 }} onClick={searching || matched ? undefined : onClose}>
+    <div className="modal-overlay" style={{ backdropFilter: 'blur(16px)', zIndex: 1100 }}>
       <div 
         className="modal-content card-3d-tilt" 
         style={{ 
@@ -279,7 +281,6 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
           position: 'relative',
           overflow: 'hidden'
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* ======================================================== */}
         {/* 1. ARENA TIER SELECTION SCREEN (Choose Stake & Rank) */}

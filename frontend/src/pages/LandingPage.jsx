@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { Swords, PlusCircle, ArrowRightCircle, BookOpen, Trophy, Users, Zap, Shield, Sparkles, X, Lock, AlertCircle } from 'lucide-react';
 import { ARENA_TIERS, getTierForFee } from '../utils/arenaTiers';
 import { isRankEligible, getRankMeta } from '../utils/rankUtils';
@@ -20,6 +21,8 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState('');
   const [topPlayers, setTopPlayers] = useState([]);
+
+  useBodyScrollLock(showJoinModal || showCreateModal);
 
   useEffect(() => {
     fetch('/api/leaderboard?limit=3')
@@ -441,8 +444,17 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
 
       {/* Join Room Modal */}
       {showJoinModal && (
-        <div className="modal-overlay" onClick={() => setShowJoinModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-icon"
+              style={{ position: 'absolute', top: '16px', right: '16px', width: '32px', height: '32px' }}
+              onClick={() => { playClick(); setShowJoinModal(false); }}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.4rem', marginBottom: '10px' }}>
               Enter Room Code
             </h2>
@@ -524,8 +536,8 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
         const userCoins = user?.coins ?? 100;
 
         return (
-          <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '540px' }}>
+          <div className="modal-overlay">
+            <div className="modal-content" style={{ maxWidth: '540px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <PlusCircle size={22} color="var(--neon-cyan)" />

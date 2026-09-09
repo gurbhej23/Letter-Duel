@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { Lock, EyeOff, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
 
 export default function WordSelectModal({ isOpen }) {
+  useBodyScrollLock(isOpen);
   const { user } = useAuth();
   const { playClick, playHit, playMiss } = useSound();
   const { sendEvent, gameState, addToast } = useSocket();

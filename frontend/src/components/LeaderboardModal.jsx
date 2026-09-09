@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSound } from '../context/SoundContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { X, Trophy, Flame, Medal, Award } from 'lucide-react';
 import { getRankMeta } from '../utils/rankUtils';
 
 export default function LeaderboardModal({ isOpen, onClose }) {
+  useBodyScrollLock(isOpen);
   const { playClick } = useSound();
   const [leaders, setLeaders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -32,8 +34,8 @@ export default function LeaderboardModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-content" style={{ maxWidth: '640px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

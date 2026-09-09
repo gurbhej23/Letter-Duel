@@ -38,6 +38,7 @@ class LetterDuelGame:
 
         # Game state: "WAITING", "READY", "WORD_SELECTION", "PLAYING", "GAME_OVER"
         self.state = "WAITING"
+        self.state_version: int = 1
         
         # Readiness
         self.ready_players: set[int] = set()
@@ -115,6 +116,7 @@ class LetterDuelGame:
         self.lifelines[player2_id] = self.max_lifelines
         if self.state == "WAITING":
             self.state = "READY"
+        self.state_version += 1
 
     def get_current_player(self) -> Optional[dict]:
         """Return the player metadata whose turn is active."""
@@ -142,6 +144,7 @@ class LetterDuelGame:
         self.current_turn_player_id = next_id
         self.turn_number += 1
         self.turn_started_at = datetime.datetime.now(datetime.timezone.utc)
+        self.state_version += 1
         return next_id
 
     def validate_turn(self, player_id: int) -> Tuple[bool, str]:
@@ -170,11 +173,13 @@ class LetterDuelGame:
 
         if self.player2_id and len(self.ready_players) == 2 and self.state in ("WAITING", "READY"):
             self.state = "WORD_SELECTION"
+            self.state_version += 1
             return True, "Both players are ready! Select your secret words."
         
         if self.state not in ("WORD_SELECTION", "PLAYING", "GAME_OVER"):
             self.state = "READY" if self.player2_id else "WAITING"
 
+        self.state_version += 1
         status_str = "ready" if player_id in self.ready_players else "not ready"
         return True, f"Player marked as {status_str}."
 
@@ -216,6 +221,7 @@ class LetterDuelGame:
             self.start_game()
             return True, "Both words locked! The duel begins!"
 
+        self.state_version += 1
         return True, "Secret word locked! Waiting for opponent..."
 
     def _apply_initial_reveals(self, guesser_id: int, target_word: str):
@@ -263,6 +269,7 @@ class LetterDuelGame:
         self.current_turn_player_id = self.player1_id  # Player 1 starts
         self.turn_number = 1
         self.turn_started_at = now
+        self.state_version += 1
 
         # Initialize discovered masks
         # Player 1 is guessing Player 2's word
@@ -341,6 +348,7 @@ class LetterDuelGame:
             self.ended_at = datetime.datetime.utcnow()
             self.winner_id = player_id
             self.win_reason = "ALL_LETTERS_FOUND"
+            self.state_version += 1
 
             return True, {
                 "letter": letter,
@@ -359,6 +367,7 @@ class LetterDuelGame:
         now = datetime.datetime.now(datetime.timezone.utc)
         self.turn_started_at = now
         expires = now + datetime.timedelta(seconds=self.turn_timeout_seconds)
+        self.state_version += 1
 
         return True, {
             "letter": letter,
@@ -417,6 +426,7 @@ class LetterDuelGame:
             self.ended_at = datetime.datetime.utcnow()
             self.winner_id = player_id
             self.win_reason = "WORD_GUESSED"
+            self.state_version += 1
 
             return True, {
                 "word": clean_word,
@@ -434,6 +444,7 @@ class LetterDuelGame:
         now = datetime.datetime.now(datetime.timezone.utc)
         self.turn_started_at = now
         expires = now + datetime.timedelta(seconds=self.turn_timeout_seconds)
+        self.state_version += 1
 
         return True, {
             "word": clean_word,
@@ -482,6 +493,7 @@ class LetterDuelGame:
             self.ended_at = now
             self.win_reason = "TIMEOUT_DISQUALIFIED"
             self.winner_id = next_player_id
+            self.state_version += 1
 
             return True, {
                 "timed_out_player_id": timed_out_player_id,
@@ -498,6 +510,7 @@ class LetterDuelGame:
         self.current_turn_player_id = next_player_id
         self.turn_number += 1
         self.turn_started_at = now
+        self.state_version += 1
 
         return True, {
             "timed_out_player_id": timed_out_player_id,
@@ -522,6 +535,7 @@ class LetterDuelGame:
         self.ended_at = datetime.datetime.utcnow()
         self.win_reason = reason
         self.winner_id = self.player2_id if forfeiting_player_id == self.player1_id else self.player1_id
+        self.state_version += 1
 
         return True, {
             "game_over": True,
@@ -539,6 +553,7 @@ class LetterDuelGame:
             return False, False, "Cannot rematch until game has finished."
 
         self.rematch_votes.add(player_id)
+        self.state_version += 1
         if len(self.rematch_votes) == 2:
             # Reset for rematch
             self.reset_for_rematch()
@@ -610,6 +625,7 @@ class LetterDuelGame:
 
         return {
             "room_code": self.room_code,
+            "state_version": self.state_version,
             "is_private": getattr(self, "is_private", True),
             "is_bot_opponent": getattr(self, "is_bot_opponent", False),
             "bot_difficulty": getattr(self, "bot_difficulty", "normal"),

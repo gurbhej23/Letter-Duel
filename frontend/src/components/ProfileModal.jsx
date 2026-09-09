@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { X, User, Flame, Trophy, Swords, Calendar, Clock, Award } from 'lucide-react';
 import { getRankMeta } from '../utils/rankUtils';
 
 const AVATARS = ['avatar-1', 'avatar-2', 'avatar-3', 'avatar-4', 'avatar-5', 'avatar-6'];
 
 export default function ProfileModal({ isOpen, onClose }) {
+  useBodyScrollLock(isOpen);
   const { user, token, updateUser, claimDailyBonus } = useAuth();
   const { playClick, playHit } = useSound();
 
@@ -119,8 +121,8 @@ export default function ProfileModal({ isOpen, onClose }) {
   const rankMeta = getRankMeta(userRank);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-content" style={{ maxWidth: '600px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
