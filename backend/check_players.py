@@ -25,8 +25,16 @@ import argparse
 from sqlalchemy import create_engine, text
 from app.config import settings
 
+PROD_PG_URL = "postgresql://letter_duel_db_user:mNssgS5AFgIgzzMs8crCwnM3fBIAraLe@dpg-dagiqr95efls73apjeeg-a.singapore-postgres.render.com/letter_duel_db"
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Inspect Letter Duel players and rooms")
+    parser.add_argument(
+        "--live",
+        "--prod",
+        action="store_true",
+        help="Inspect live Render PostgreSQL production database directly"
+    )
     parser.add_argument(
         "--pg",
         "--url",
@@ -44,11 +52,19 @@ def parse_args():
         action="store_true",
         help="Show only real player accounts (hides automated test bots)"
     )
+    parser.add_argument(
+        "--coins",
+        action="store_true",
+        help="Show recent coin transactions ledger"
+    )
     return parser.parse_args()
 
 def inspect_database():
     args = parse_args()
-    db_url = args.db_url or settings.get_database_url()
+    if args.live:
+        db_url = PROD_PG_URL
+    else:
+        db_url = args.db_url or settings.get_database_url()
 
     if db_url.startswith("postgres://"):
         db_url = "postgresql://" + db_url[len("postgres://"):]
@@ -113,6 +129,18 @@ def inspect_database():
         print("-" * 85)
         for g in games:
             print(f"Game #{g['id']}: Room={g['room_id']}, P1={g['player1_id']}, P2={g['player2_id']}, Winner={g['winner_id']}, Status={g['status']}")
+
+        # Coins transactions ledger
+        if args.coins:
+            txs = conn.execute(text("SELECT id, user_id, amount, balance_after, transaction_type, reference_id, created_at FROM coin_transactions ORDER BY id DESC LIMIT 10")).mappings().all()
+            print(f"\nRECENT COIN TRANSACTIONS ({len(txs)}):")
+            print("-" * 85)
+            print(f"{'ID':<6} | {'User':<6} | {'Amount':<8} | {'Balance':<8} | {'Type':<22} | {'Ref ID'}")
+            print("-" * 85)
+            for t in txs:
+                sign = "+" if t["amount"] > 0 else ""
+                amt_str = f"{sign}{t['amount']}"
+                print(f"{t['id']:<6} | {t['user_id']:<6} | {amt_str:<8} | {t['balance_after']:<8} | {t['transaction_type']:<22} | {t['reference_id'] or '-'}")
 
         print("=" * 85 + "\n")
 
