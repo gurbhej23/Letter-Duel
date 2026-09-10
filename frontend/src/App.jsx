@@ -38,8 +38,10 @@ function MainApp() {
     return sessionStorage.getItem('letter_duel_tournament_open') === 'true';
   });
   const [incomingChallenge, setIncomingChallenge] = useState(null);
+  const [pendingFriendsCount, setPendingFriendsCount] = useState(0);
 
   const seenInvitesRef = useRef(new Set());
+  const seenFriendRequestsRef = useRef(new Set());
 
   // Check for active match on mount / login if not currently connected
   useEffect(() => {
@@ -79,32 +81,64 @@ function MainApp() {
     setTournamentOpen(false);
   };
 
-  // Poll for room invitations if user is logged in and not in a room
+  // Poll for room invitations and pending friend requests when logged in
   useEffect(() => {
-    if (!token || currentRoomCode) return;
+    if (!token) return;
 
-    const interval = setInterval(async () => {
+    const pollNotifications = async () => {
+      // 1. Poll room invitations (when not in a room)
+      if (!currentRoomCode) {
+        try {
+          const res = await fetch('/api/friends/invites', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const invites = await res.json();
+            if (invites && invites.length > 0) {
+              const last = invites[invites.length - 1];
+              const inviteKey = `${last.sender_username}_${last.room_code}`;
+              if (!seenInvitesRef.current.has(inviteKey)) {
+                seenInvitesRef.current.add(inviteKey);
+                setIncomingChallenge(last);
+                try { sound.playVictory(); } catch { }
+                addToast(`⚔️ ${last.sender_username} challenged you to a 1v1 duel!`, "primary");
+              }
+            }
+          }
+        } catch (e) {
+          // silent
+        }
+      }
+
+      // 2. Poll pending friend requests (for red badge circle and notifications)
       try {
-        const res = await fetch('/api/friends/invites', {
+        const reqRes = await fetch('/api/friends/requests/pending', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) {
-          const invites = await res.json();
-          if (invites && invites.length > 0) {
-            const last = invites[invites.length - 1];
-            const inviteKey = `${last.sender_username}_${last.room_code}`;
-            if (!seenInvitesRef.current.has(inviteKey)) {
-              seenInvitesRef.current.add(inviteKey);
-              setIncomingChallenge(last);
-              try { sound.playVictory(); } catch { }
-              addToast(`⚔️ ${last.sender_username} challenged you to a 1v1 duel!`, "primary");
-            }
+        if (reqRes.ok) {
+          const pendingList = await reqRes.json();
+          if (Array.isArray(pendingList)) {
+            setPendingFriendsCount(pendingList.length);
+
+            // Trigger notification for each incoming request
+            pendingList.forEach(req => {
+              const reqId = req.id;
+              if (!seenFriendRequestsRef.current.has(reqId)) {
+                seenFriendRequestsRef.current.add(reqId);
+                const senderName = req.requester?.username || "A duelist";
+                try { sound.playHit(); } catch { }
+                addToast(`🔔 ${senderName} sent you a friend request!`, "primary");
+              }
+            });
           }
         }
       } catch (e) {
         // silent
       }
-    }, 3000);
+    };
+
+    pollNotifications();
+    const interval = setInterval(pollNotifications, 3500);
 
     return () => clearInterval(interval);
   }, [token, currentRoomCode, addToast, sound]);
@@ -168,6 +202,7 @@ function MainApp() {
         onOpenRankModal={() => setRankRoadmapOpen(true)}
         onOpenFriends={() => setFriendsOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
+        pendingFriendsCount={pendingFriendsCount}
         onOpenTournaments={() => {
           if (!user) {
             setAuthOpen(true);
@@ -233,6 +268,7 @@ function MainApp() {
         isOpen={friendsOpen}
         onClose={() => setFriendsOpen(false)}
         currentRoomCode={currentRoomCode}
+        onRequestsCountChange={setPendingFriendsCount}
         onChallengeCreated={(code) => {
           connectToRoom(code);
         }}

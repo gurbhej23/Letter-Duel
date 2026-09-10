@@ -5,7 +5,7 @@ import { useSocket } from '../context/SocketContext';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { X, Users, UserPlus, Check, Trash2, Send, Search, Copy, Swords, Shield, Flame, CheckCircle2 } from 'lucide-react';
 
-export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChallengeCreated }) {
+export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChallengeCreated, onRequestsCountChange }) {
   useBodyScrollLock(isOpen);
   const { user, token } = useAuth();
   const sound = useSound();
@@ -57,6 +57,9 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChall
       if (res.ok) {
         const data = await res.json();
         setRequests(data);
+        if (onRequestsCountChange) {
+          onRequestsCountChange(data.length);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -300,11 +303,22 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChall
               padding: '8px',
               fontSize: '0.85rem',
               fontWeight: activeTab === 'requests' ? '700' : '500',
-              boxShadow: 'none'
+              boxShadow: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
             }}
             onClick={() => { playClick(); setActiveTab('requests'); }}
           >
-            Requests ({requests.length})
+            <span>Requests</span>
+            {requests.length > 0 ? (
+              <span className="badge-notification-circle" style={{ minWidth: '17px', height: '17px', fontSize: '0.62rem' }}>
+                {requests.length}
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>(0)</span>
+            )}
           </button>
           <button
             className="btn"

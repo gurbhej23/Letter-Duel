@@ -1854,5 +1854,39 @@ textarea::placeholder {
   opacity: 0.8 !important;
 }
 
+/* Red Notification Badge Circle (1, 2, ...) */
+.badge-notification-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #ff2a6d, #e11d48);
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 900;
+  font-family: var(--font-mono);
+  line-height: 1;
+  box-shadow: 0 0 10px rgba(255, 42, 109, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  animation: notificationPulse 2.2s infinite ease-in-out;
+  pointer-events: none;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+@keyframes notificationPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px rgba(255, 42, 109, 0.5);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 14px rgba(255, 42, 109, 0.85);
+  }
+}
+
 
 

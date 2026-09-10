@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart, Lightbulb, X } from 'lucide-react';
+import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart, Lightbulb, X, UserPlus } from 'lucide-react';
 import { getRankMeta, getRankProgress } from '../utils/rankUtils';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
@@ -13,7 +13,7 @@ const ALPHABET_ROWS = [
 ];
 
 export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
-  const { user, refreshUser, updateUser } = useAuth();
+  const { user, token, refreshUser, updateUser } = useAuth();
   const sound = useSound();
   const { playClick, playKey, playHit, playMiss } = sound;
   const { 
@@ -26,7 +26,8 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
     opponentDisconnected,
     opponentReconnectedNotice,
     serverClockOffset, 
-    leaveRoom 
+    leaveRoom,
+    addToast
   } = useSocket();
 
   const [fullWordInput, setFullWordInput] = useState('');
@@ -40,6 +41,36 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
   const lastTypingSentRef = useRef(0);
 
   const lastBeepedSecRef = useRef(null);
+  const [friendRequestSent, setFriendRequestSent] = useState(false);
+  const [sendingFriendReq, setSendingFriendReq] = useState(false);
+
+  const handleAddOpponentFriend = async () => {
+    if (!opponent?.username || !token) return;
+    playClick();
+    setSendingFriendReq(true);
+    try {
+      const res = await fetch('/api/friends/request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ receiver_username: opponent.username })
+      });
+      if (res.ok) {
+        setFriendRequestSent(true);
+        playHit();
+        addToast(`Friend request sent to ${opponent.username}! 🤝`, "success");
+      } else {
+        const data = await res.json();
+        addToast(data.detail || 'Could not send friend request', "warning");
+      }
+    } catch (e) {
+      addToast('Network error sending friend request', "warning");
+    } finally {
+      setSendingFriendReq(false);
+    }
+  };
 
   // Lock body scroll when full word modal is open
   useBodyScrollLock(showFullWordModal);
@@ -1009,6 +1040,39 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
                 </span>
               </div>
             </div>
+
+            {/* Add Opponent as Friend Action */}
+            {opponent && opponent.id !== 99999 && (
+              <div style={{ marginBottom: '14px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    width: '100%',
+                    padding: '8px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    borderColor: friendRequestSent ? '#00e676' : 'var(--border-subtle)',
+                    color: friendRequestSent ? '#00e676' : 'var(--neon-cyan)',
+                    background: friendRequestSent ? 'rgba(0, 230, 118, 0.1)' : 'rgba(0, 242, 254, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: 'none'
+                  }}
+                  disabled={friendRequestSent || sendingFriendReq}
+                  onClick={handleAddOpponentFriend}
+                >
+                  <UserPlus size={16} />
+                  <span>
+                    {friendRequestSent 
+                      ? `✓ Friend Request Sent to ${opponent.username}` 
+                      : (sendingFriendReq ? 'Sending Request...' : `Add ${opponent.username} as Friend`)}
+                  </span>
+                </button>
+              </div>
+            )}
 
             {/* Rematch Controls */}
             <div style={{ display: 'flex', gap: '10px' }}>

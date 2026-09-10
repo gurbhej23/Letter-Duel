@@ -15,7 +15,8 @@ export default function Navbar({
   onOpenFriends, 
   onOpenProfile, 
   onOpenTournaments,
-  onOpenRankModal 
+  onOpenRankModal,
+  pendingFriendsCount = 0
 }) {
   const { user, logout } = useAuth();
   const { isMuted, toggleMute, playClick } = useSound();
@@ -201,9 +202,23 @@ export default function Navbar({
             className="nav-pill-btn"
             onClick={() => handleNavAction(onOpenFriends)}
             title="Friends & Direct Challenges"
+            style={{ position: 'relative' }}
           >
             <Users size={16} color="#00e676" />
             <span>Friends</span>
+            {pendingFriendsCount > 0 && (
+              <span 
+                className="badge-notification-circle" 
+                style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-6px',
+                  boxShadow: '0 0 10px rgba(255, 42, 109, 0.75)'
+                }}
+              >
+                {pendingFriendsCount > 9 ? '9+' : pendingFriendsCount}
+              </span>
+            )}
           </button>
         )}
 
@@ -457,9 +472,20 @@ export default function Navbar({
           </button>
 
           {user && (
-            <button className="mobile-nav-item" onClick={() => handleNavAction(onOpenFriends)}>
-              <Users size={20} color="#00e676" />
-              <span>Friends & Rivals</span>
+            <button 
+              className="mobile-nav-item" 
+              onClick={() => handleNavAction(onOpenFriends)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Users size={20} color="#00e676" />
+                <span>Friends & Rivals</span>
+              </div>
+              {pendingFriendsCount > 0 && (
+                <span className="badge-notification-circle">
+                  {pendingFriendsCount > 9 ? '9+' : pendingFriendsCount}
+                </span>
+              )}
             </button>
           )}
 
