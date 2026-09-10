@@ -695,7 +695,7 @@ export default function TournamentPage({ onBackToHome, onEnterMatch }) {
                 {/* Champion Podium Showcase */}
                 {tournament?.status === 'FINISHED' && tournament?.winner_username && (
                   <div
-                    className="glass-panel card-3d-tilt"
+                    className="glass-panel"
                     style={{
                       marginTop: '20px',
                       padding: '24px',

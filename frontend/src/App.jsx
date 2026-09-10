@@ -314,7 +314,7 @@ function MainApp() {
       {/* Incoming 1v1 Duel Challenge Dialog */}
       {incomingChallenge && (
         <div className="modal-overlay" style={{ zIndex: 1200, backdropFilter: 'blur(12px)' }}>
-          <div className="modal-content card-3d-tilt" style={{ maxWidth: '420px', textAlign: 'center', border: '2px solid var(--neon-cyan)', boxShadow: 'none' }}>
+          <div className="modal-content" style={{ maxWidth: '420px', textAlign: 'center', border: '2px solid var(--neon-cyan)', boxShadow: 'none' }}>
             <div style={{
               width: '58px',
               height: '58px',

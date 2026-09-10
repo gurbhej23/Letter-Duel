@@ -503,7 +503,7 @@ export default function LandingPage({
         gap: '20px',
         margin: 'clamp(30px, 6vw, 50px) 0'
       }}>
-        <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
+        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -524,7 +524,7 @@ export default function LandingPage({
           </p>
         </div>
 
-        <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
+        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -545,7 +545,7 @@ export default function LandingPage({
           </p>
         </div>
 
-        <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
+        <div className="glass-panel" style={{ padding: 'clamp(20px, 4vw, 28px)' }}>
           <div style={{
             width: '46px',
             height: '46px',
@@ -569,7 +569,7 @@ export default function LandingPage({
 
       {/* Podium Teaser */}
       {topPlayers.length > 0 && (topPlayers[0]?.wins > 0 || topPlayers[0]?.xp > 0) && (
-        <div className="glass-panel card-3d-tilt" style={{ padding: 'clamp(16px, 3.5vw, 24px) clamp(16px, 4vw, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div className="glass-panel" style={{ padding: 'clamp(16px, 3.5vw, 24px) clamp(16px, 4vw, 32px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <Trophy size={28} color="#ffb300" style={{ flexShrink: 0 }} />
             <div>

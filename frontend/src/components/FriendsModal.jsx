@@ -220,7 +220,7 @@ export default function FriendsModal({ isOpen, onClose, currentRoomCode, onChall
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content card-3d-tilt" style={{ maxWidth: '540px' }}>
+      <div className="modal-content" style={{ maxWidth: '540px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -271,7 +271,7 @@ export default function MatchmakingModal({ isOpen, onClose, onMatched }) {
   return (
     <div className="modal-overlay" style={{ backdropFilter: 'blur(16px)', zIndex: 1100 }}>
       <div 
-        className="modal-content card-3d-tilt" 
+        className="modal-content" 
         style={{ 
           maxWidth: searching || matched ? '520px' : '560px', 
           textAlign: 'center',

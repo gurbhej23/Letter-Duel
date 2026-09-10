@@ -522,7 +522,7 @@ export default function Navbar({
       {/* Leave Match Confirmation Modal Popup (Portaled to body with rich animations) */}
       {showLeaveConfirm && typeof document !== 'undefined' && createPortal(
         <div className="leave-modal-overlay">
-          <div className="leave-modal-card card-3d-tilt">
+          <div className="leave-modal-card">
             {/* Pulsing Warning Radar Badge */}
             <div className="leave-warning-badge">
               <AlertTriangle size={34} color="#ff2a6d" />

@@ -72,7 +72,7 @@ export default function ActiveMatchModal({ activeMatch, onRejoin, onLeave }) {
       }}
     >
       <div 
-        className="modal-content card-3d-tilt" 
+        className="modal-content" 
         style={{ 
           maxWidth: '480px', 
           width: '100%',
