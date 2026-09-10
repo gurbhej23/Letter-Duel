@@ -202,7 +202,7 @@ export default function Navbar({
             className="nav-pill-btn"
             onClick={() => handleNavAction(onOpenFriends)}
             title="Friends & Direct Challenges"
-            style={{ position: 'relative' }}
+            style={{ position: 'relative', overflow: 'visible' }}
           >
             <Users size={16} color="#00e676" />
             <span>Friends</span>
@@ -213,7 +213,8 @@ export default function Navbar({
                   position: 'absolute',
                   top: '-6px',
                   right: '-6px',
-                  boxShadow: '0 0 10px rgba(255, 42, 109, 0.75)'
+                  zIndex: 10,
+                  boxShadow: '0 0 10px rgba(255, 42, 109, 0.85)'
                 }}
               >
                 {pendingFriendsCount > 9 ? '9+' : pendingFriendsCount}
