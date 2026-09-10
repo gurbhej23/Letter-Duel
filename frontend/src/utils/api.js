@@ -1,6 +1,4 @@
-// Centralized API and WebSocket URL builder supporting local dev, Vercel, and Render deployments
-
-const PRODUCTION_DEFAULT_BACKEND = 'https://letter-duel-backend.onrender.com';
+const PRODUCTION_DEFAULT_BACKEND = 'https://letter-duel-1.onrender.com';
 
 function normalizeUrl(url) {
   if (!url) return '';
