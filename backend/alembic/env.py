@@ -30,7 +30,7 @@ def get_url() -> str:
     if cfg_url and cfg_url != "driver://user:pass@localhost/dbname":
         if cfg_url.startswith("postgres://"):
             cfg_url = "postgresql://" + cfg_url[len("postgres://"):]
-        return cfg_url
+        return cfg_url.rstrip(");'\"")
     return settings.get_database_url()
 
 

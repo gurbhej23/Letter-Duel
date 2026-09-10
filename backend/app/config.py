@@ -21,8 +21,10 @@ class Settings(BaseSettings):
         Returns normalized database URL.
         Render PostgreSQL connection strings often begin with 'postgres://',
         which SQLAlchemy 1.4+ deprecated in favor of 'postgresql://'.
+        Also strips accidental trailing parentheses or punctuation from copy-pasting.
         """
         url = (self.DATABASE_URL or "").strip()
+        url = url.rstrip(");'\"")
         if url.startswith("postgres://"):
             url = "postgresql://" + url[len("postgres://"):]
         return url
