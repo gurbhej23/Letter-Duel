@@ -143,29 +143,39 @@ export default function ProfileModal({ isOpen, onClose, onOpenRankModal }) {
         </div>
 
         {/* Competitive Rank & Balance Card */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(14, 22, 38, 0.95), rgba(22, 32, 54, 0.95))',
-          border: `1px solid ${rankMeta.border}`,
-          borderRadius: 'var(--radius-lg)',
-          padding: '16px 18px',
-          marginBottom: '18px',
-          boxShadow: `0 8px 24px ${rankMeta.glow}`
-        }}>
+        <div 
+          className="rank-status-card"
+          style={{
+            '--rank-border': rankMeta.border,
+            '--rank-glow': rankMeta.glow,
+            '--rank-color': rankMeta.color,
+            '--rank-light-color': rankMeta.lightColor || rankMeta.color,
+            '--rank-next-light-color': progress.nextMeta?.lightColor || progress.nextMeta?.color,
+            border: `1px solid ${rankMeta.border}`,
+            borderRadius: 'var(--radius-lg)',
+            padding: '16px 18px',
+            marginBottom: '18px',
+            boxShadow: `0 8px 24px ${rankMeta.glow}`
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{
-                background: rankMeta.bg,
-                color: rankMeta.color,
-                border: `1px solid ${rankMeta.border}`,
-                fontWeight: '900',
-                fontSize: '1.05rem',
-                padding: '6px 14px',
-                borderRadius: '12px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: `0 0 14px ${rankMeta.color}30`
-              }}>
+              <div 
+                className="rank-badge-pill"
+                style={{
+                  background: rankMeta.bg,
+                  color: rankMeta.color,
+                  border: `1px solid ${rankMeta.border}`,
+                  fontWeight: '900',
+                  fontSize: '1.05rem',
+                  padding: '6px 14px',
+                  borderRadius: '12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: `0 0 14px ${rankMeta.color}30`
+                }}
+              >
                 <span>{rankMeta.badge}</span>
                 <span>{userRank}</span>
               </div>
@@ -198,7 +208,7 @@ export default function ProfileModal({ isOpen, onClose, onOpenRankModal }) {
 
               {onOpenRankModal && (
                 <button
-                  className="btn btn-secondary btn-sm"
+                  className="btn btn-secondary btn-sm rank-ladder-btn"
                   style={{
                     fontSize: '0.75rem',
                     padding: '6px 10px',
@@ -217,20 +227,14 @@ export default function ProfileModal({ isOpen, onClose, onOpenRankModal }) {
 
           {/* Progress Bar towards Next Rank */}
           {!progress.isMaxRank ? (
-            <div style={{ background: 'rgba(0,0,0,0.25)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+            <div className="rank-target-pill" style={{ padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '6px', color: 'var(--text-secondary)' }}>
-                <span>Next Division: <strong style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)</span>
+                <span>Next Division: <strong className="next-rank-name" style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)</span>
                 <span style={{ fontWeight: 800, color: 'var(--neon-emerald)' }}>
                   {progress.pointsNeeded} RP left (~{progress.estimatedWins} wins)
                 </span>
               </div>
-              <div style={{
-                width: '100%',
-                height: '8px',
-                borderRadius: '4px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                overflow: 'hidden'
-              }}>
+              <div className="rank-progress-track">
                 <div style={{
                   width: `${progress.percent}%`,
                   height: '8px',

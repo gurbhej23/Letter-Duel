@@ -55,6 +55,7 @@ export const RANK_INFO = {
   "Bronze": {
     badge: "🥉",
     color: "#cd7f32",
+    lightColor: "#b45309",
     glow: "rgba(205, 127, 50, 0.4)",
     bg: "rgba(205, 127, 50, 0.12)",
     border: "rgba(205, 127, 50, 0.45)",
@@ -64,6 +65,7 @@ export const RANK_INFO = {
   "Silver": {
     badge: "🥈",
     color: "#cbd5e1",
+    lightColor: "#475569",
     glow: "rgba(203, 213, 225, 0.4)",
     bg: "rgba(203, 213, 225, 0.12)",
     border: "rgba(203, 213, 225, 0.45)",
@@ -73,6 +75,7 @@ export const RANK_INFO = {
   "Gold": {
     badge: "🥇",
     color: "#ffb300",
+    lightColor: "#b45309",
     glow: "rgba(255, 179, 0, 0.45)",
     bg: "rgba(255, 179, 0, 0.15)",
     border: "rgba(255, 179, 0, 0.45)",
@@ -82,6 +85,7 @@ export const RANK_INFO = {
   "Platinum": {
     badge: "💠",
     color: "#00f2fe",
+    lightColor: "#0284c7",
     glow: "rgba(0, 242, 254, 0.45)",
     bg: "rgba(0, 242, 254, 0.15)",
     border: "rgba(0, 242, 254, 0.45)",
@@ -91,6 +95,7 @@ export const RANK_INFO = {
   "Diamond": {
     badge: "💎",
     color: "#a78bfa",
+    lightColor: "#7c3aed",
     glow: "rgba(167, 139, 250, 0.5)",
     bg: "rgba(167, 139, 250, 0.16)",
     border: "rgba(167, 139, 250, 0.45)",
@@ -100,6 +105,7 @@ export const RANK_INFO = {
   "Master": {
     badge: "👑",
     color: "#ff2a6d",
+    lightColor: "#e11d48",
     glow: "rgba(255, 42, 109, 0.5)",
     bg: "rgba(255, 42, 109, 0.16)",
     border: "rgba(255, 42, 109, 0.45)",
@@ -109,6 +115,7 @@ export const RANK_INFO = {
   "Grandmaster": {
     badge: "🔱",
     color: "#00e676",
+    lightColor: "#059669",
     glow: "rgba(0, 230, 118, 0.6)",
     bg: "rgba(0, 230, 118, 0.18)",
     border: "rgba(0, 230, 118, 0.45)",

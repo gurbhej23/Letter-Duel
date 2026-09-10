@@ -260,59 +260,66 @@ export default function LandingPage({
         {user ? (() => {
           const progress = getRankProgress(user.rating || 800);
           return (
-            <div style={{
-              width: 'min(460px, 100%)',
-              margin: '0 auto 24px auto',
-              background: 'linear-gradient(135deg, rgba(14, 22, 38, 0.95), rgba(22, 32, 54, 0.95))',
-              border: `1px solid ${progress.meta.border}`,
-              borderRadius: 'var(--radius-lg)',
-              padding: '16px 20px',
-              boxShadow: `0 8px 30px ${progress.meta.glow}`,
-              textAlign: 'left'
-            }}>
+            <div 
+              className="rank-status-card"
+              style={{
+                width: 'min(460px, 100%)',
+                margin: '0 auto 24px auto',
+                '--rank-border': progress.meta.border,
+                '--rank-glow': progress.meta.glow,
+                '--rank-color': progress.meta.color,
+                '--rank-light-color': progress.meta.lightColor || progress.meta.color,
+                '--rank-next-light-color': progress.nextMeta?.lightColor || progress.nextMeta?.color,
+                border: `1px solid ${progress.meta.border}`,
+                borderRadius: 'var(--radius-lg)',
+                padding: '16px 20px',
+                boxShadow: `0 8px 30px ${progress.meta.glow}`,
+                textAlign: 'left'
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '50%',
-                    background: progress.meta.bg,
-                    border: `2px solid ${progress.meta.color}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.5rem',
-                    boxShadow: `0 0 12px ${progress.meta.glow}`,
-                    flexShrink: 0
-                  }}>
+                  <div 
+                    className="rank-badge-circle"
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      background: progress.meta.bg,
+                      border: `2px solid ${progress.meta.color}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.5rem',
+                      boxShadow: `0 0 12px ${progress.meta.glow}`,
+                      flexShrink: 0
+                    }}
+                  >
                     {progress.meta.badge}
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: 900, fontSize: '1.05rem', color: progress.meta.color }}>
+                      <span className="rank-name-text" style={{ fontWeight: 900, fontSize: '1.05rem', color: progress.meta.color }}>
                         {progress.currentRank}
                       </span>
-                      <span style={{
-                        background: 'rgba(0, 242, 254, 0.12)',
-                        color: 'var(--neon-cyan)',
+                      <span className="rank-rp-pill" style={{
                         fontSize: '0.68rem',
                         fontWeight: 800,
                         padding: '2px 8px',
                         borderRadius: '10px',
-                        border: '1px solid rgba(0, 242, 254, 0.3)',
                         fontFamily: 'var(--font-mono)'
                       }}>
                         {progress.rating} RP
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <div className="rank-rating-text" style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       Competitive League Rating
                     </div>
                   </div>
                 </div>
 
                 <button
-                  className="btn btn-secondary btn-sm"
+                  className="btn btn-secondary btn-sm rank-ladder-btn"
                   style={{
                     fontSize: '0.75rem',
                     padding: '6px 12px',
@@ -332,18 +339,12 @@ export default function LandingPage({
               {!progress.isMaxRank ? (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '6px', color: 'var(--text-secondary)' }}>
-                    <span>Next Rank: <strong style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)</span>
+                    <span>Next Rank: <strong className="next-rank-name" style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)</span>
                     <span style={{ fontWeight: 800, color: 'var(--neon-emerald)' }}>
                       {progress.pointsNeeded} RP left (~{progress.estimatedWins} wins)
                     </span>
                   </div>
-                  <div style={{
-                    width: '100%',
-                    height: '8px',
-                    borderRadius: '4px',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    overflow: 'hidden'
-                  }}>
+                  <div className="rank-progress-track">
                     <div style={{
                       width: `${progress.percent}%`,
                       height: '8px',

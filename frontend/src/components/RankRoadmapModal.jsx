@@ -98,16 +98,23 @@ export default function RankRoadmapModal({ isOpen, onClose }) {
           
           {/* Active Player Standing Banner */}
           {user && (
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(14, 22, 38, 0.95), rgba(20, 28, 48, 0.95))',
-              border: `1px solid ${progress.meta.border}`,
-              borderRadius: 'var(--radius-lg)',
-              padding: '18px 20px',
-              marginBottom: '20px',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: `0 8px 28px ${progress.meta.glow}`
-            }}>
+            <div 
+              className="rank-status-card"
+              style={{
+                '--rank-border': progress.meta.border,
+                '--rank-glow': progress.meta.glow,
+                '--rank-color': progress.meta.color,
+                '--rank-light-color': progress.meta.lightColor || progress.meta.color,
+                '--rank-next-light-color': progress.nextMeta?.lightColor || progress.nextMeta?.color,
+                border: `1px solid ${progress.meta.border}`,
+                borderRadius: 'var(--radius-lg)',
+                padding: '18px 20px',
+                marginBottom: '20px',
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: `0 8px 28px ${progress.meta.glow}`
+              }}
+            >
               {/* Subtle background tier badge watermark */}
               <div style={{
                 position: 'absolute',
@@ -123,28 +130,29 @@ export default function RankRoadmapModal({ isOpen, onClose }) {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '52px',
-                    height: '52px',
-                    borderRadius: '50%',
-                    background: progress.meta.bg,
-                    border: `2px solid ${progress.meta.color}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.8rem',
-                    boxShadow: `0 0 16px ${progress.meta.glow}`
-                  }}>
+                  <div 
+                    className="rank-badge-circle"
+                    style={{
+                      width: '52px',
+                      height: '52px',
+                      borderRadius: '50%',
+                      background: progress.meta.bg,
+                      border: `2px solid ${progress.meta.color}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.8rem',
+                      boxShadow: `0 0 16px ${progress.meta.glow}`
+                    }}
+                  >
                     {progress.meta.badge}
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: 900, fontSize: '1.2rem', color: progress.meta.color }}>
+                      <span className="rank-name-text" style={{ fontWeight: 900, fontSize: '1.2rem', color: progress.meta.color }}>
                         {progress.currentRank}
                       </span>
-                      <span style={{
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        color: 'var(--text-secondary)',
+                      <span className="rank-active-pill" style={{
                         fontSize: '0.72rem',
                         fontWeight: 700,
                         padding: '2px 8px',
@@ -154,19 +162,20 @@ export default function RankRoadmapModal({ isOpen, onClose }) {
                       </span>
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      <strong style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{progress.rating} RP</strong> (Rating Points)
+                      <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{progress.rating} RP</strong> (Rating Points)
                     </div>
                   </div>
                 </div>
 
                 {/* Next Division Target Pill */}
-                <div style={{
-                  background: 'rgba(0, 0, 0, 0.3)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '8px 14px',
-                  textAlign: 'right'
-                }}>
+                <div 
+                  className="rank-target-pill"
+                  style={{
+                    borderRadius: 'var(--radius-md)',
+                    padding: '8px 14px',
+                    textAlign: 'right'
+                  }}
+                >
                   {progress.isMaxRank ? (
                     <div style={{ color: '#00e676', fontWeight: 800, fontSize: '0.85rem' }}>
                       🔱 Maximum Rank Achieved!
@@ -174,7 +183,7 @@ export default function RankRoadmapModal({ isOpen, onClose }) {
                   ) : (
                     <>
                       <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                        Target: <strong style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)
+                        Target: <strong className="next-rank-name" style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)
                       </div>
                       <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--neon-cyan)', marginTop: '2px' }}>
                         {progress.pointsNeeded} RP needed (~{progress.estimatedWins} wins)
@@ -191,14 +200,7 @@ export default function RankRoadmapModal({ isOpen, onClose }) {
                     <span>Progress to {progress.nextRank}</span>
                     <span style={{ fontWeight: 800, color: 'var(--neon-emerald)' }}>{progress.percent}%</span>
                   </div>
-                  <div style={{
-                    width: '100%',
-                    height: '10px',
-                    borderRadius: '5px',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    overflow: 'hidden',
-                    position: 'relative'
-                  }}>
+                  <div className="rank-progress-track" style={{ height: '10px', borderRadius: '5px' }}>
                     <div style={{
                       width: `${progress.percent}%`,
                       height: '10px',
@@ -302,6 +304,7 @@ export default function RankRoadmapModal({ isOpen, onClose }) {
                 return (
                   <div
                     key={t.rank}
+                    className={`ladder-division-row ${isCurrent ? 'is-current' : ''}`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -327,7 +330,7 @@ export default function RankRoadmapModal({ isOpen, onClose }) {
                           <span style={{ 
                             fontWeight: 800, 
                             fontSize: '0.95rem', 
-                            color: isCurrent ? 'var(--neon-cyan)' : (isPassed ? '#fff' : 'var(--text-secondary)') 
+                            color: isCurrent ? 'var(--neon-cyan)' : (isPassed ? 'var(--text-primary)' : 'var(--text-secondary)') 
                           }}>
                             {t.rank}
                           </span>
