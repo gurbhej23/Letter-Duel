@@ -5,9 +5,18 @@ import { useSocket } from '../context/SocketContext';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { Swords, PlusCircle, ArrowRightCircle, BookOpen, Trophy, Users, Zap, Shield, Sparkles, X, Lock, AlertCircle } from 'lucide-react';
 import { ARENA_TIERS, getTierForFee } from '../utils/arenaTiers';
-import { isRankEligible, getRankMeta } from '../utils/rankUtils';
+import { isRankEligible, getRankMeta, getRankProgress } from '../utils/rankUtils';
 
-export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenMatchmaking, onRoomCreated, onRoomJoined, onOpenTournaments }) {
+export default function LandingPage({ 
+  onOpenAuth, 
+  onOpenTutorial, 
+  onOpenLeaderboard, 
+  onOpenMatchmaking, 
+  onRoomCreated, 
+  onRoomJoined, 
+  onOpenTournaments,
+  onOpenRankModal
+}) {
   const { user, token } = useAuth();
   const { playClick, playHit, playMiss } = useSound();
   const { onlineCount } = useSocket();
@@ -246,6 +255,140 @@ export default function LandingPage({ onOpenAuth, onOpenTutorial, onOpenLeaderbo
         }}>
           ⚡
         </div>
+
+        {/* Competitive Rank Status Card */}
+        {user ? (() => {
+          const progress = getRankProgress(user.rating || 800);
+          return (
+            <div style={{
+              width: 'min(460px, 100%)',
+              margin: '0 auto 24px auto',
+              background: 'linear-gradient(135deg, rgba(14, 22, 38, 0.95), rgba(22, 32, 54, 0.95))',
+              border: `1px solid ${progress.meta.border}`,
+              borderRadius: 'var(--radius-lg)',
+              padding: '16px 20px',
+              boxShadow: `0 8px 30px ${progress.meta.glow}`,
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '50%',
+                    background: progress.meta.bg,
+                    border: `2px solid ${progress.meta.color}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.5rem',
+                    boxShadow: `0 0 12px ${progress.meta.glow}`,
+                    flexShrink: 0
+                  }}>
+                    {progress.meta.badge}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: 900, fontSize: '1.05rem', color: progress.meta.color }}>
+                        {progress.currentRank}
+                      </span>
+                      <span style={{
+                        background: 'rgba(0, 242, 254, 0.12)',
+                        color: 'var(--neon-cyan)',
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        border: '1px solid rgba(0, 242, 254, 0.3)',
+                        fontFamily: 'var(--font-mono)'
+                      }}>
+                        {progress.rating} RP
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Competitive League Rating
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '6px 12px',
+                    borderColor: progress.meta.border,
+                    color: progress.meta.color,
+                    fontWeight: 800,
+                    borderRadius: '10px'
+                  }}
+                  onClick={() => { playClick(); onOpenRankModal?.(); }}
+                  title="View full rank roadmap and divisions"
+                >
+                  🏆 Rank Ladder
+                </button>
+              </div>
+
+              {/* Progress to next rank */}
+              {!progress.isMaxRank ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                    <span>Next Rank: <strong style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)</span>
+                    <span style={{ fontWeight: 800, color: 'var(--neon-emerald)' }}>
+                      {progress.pointsNeeded} RP left (~{progress.estimatedWins} wins)
+                    </span>
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    height: '8px',
+                    borderRadius: '4px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${progress.percent}%`,
+                      height: '8px',
+                      borderRadius: '4px',
+                      background: progress.meta.gradient || 'linear-gradient(90deg, #00f2fe, #00e676)',
+                      boxShadow: `0 0 10px ${progress.meta.color}`,
+                      transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }} />
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.8rem', color: '#00e676', fontWeight: 800 }}>
+                  🔱 Pinnacle Rank: Grandmaster Achieved!
+                </div>
+              )}
+            </div>
+          );
+        })() : (
+          /* Guest Preview Banner */
+          <div 
+            onClick={() => { playClick(); onOpenRankModal?.(); }}
+            style={{
+              width: 'min(460px, 100%)',
+              margin: '0 auto 20px auto',
+              background: 'rgba(0, 242, 254, 0.06)',
+              border: '1px dashed rgba(0, 242, 254, 0.35)',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              fontSize: '0.82rem',
+              color: 'var(--neon-cyan)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🏆</span>
+              <span><strong>Competitive Leagues:</strong> Bronze III (800 RP) → Grandmaster</span>
+            </span>
+            <span style={{ textDecoration: 'underline', fontWeight: 800, fontSize: '0.78rem' }}>View Ladder →</span>
+          </div>
+        )}
 
         {/* Primary Action Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', marginBottom: '20px' }}>

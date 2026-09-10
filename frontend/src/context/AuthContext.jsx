@@ -130,6 +130,10 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateUser = (partialData) => {
+    setUser(prev => (prev ? { ...prev, ...partialData } : prev));
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -137,6 +141,7 @@ export function AuthProvider({ children }) {
       loading,
       login,
       logout,
+      updateUser,
       refreshUser: () => token && fetchMe(token),
       claimDailyBonus
     }}>

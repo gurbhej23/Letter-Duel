@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart, Lightbulb, X } from 'lucide-react';
-import { getRankMeta } from '../utils/rankUtils';
+import { getRankMeta, getRankProgress } from '../utils/rankUtils';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
 const ALPHABET_ROWS = [
@@ -12,8 +12,8 @@ const ALPHABET_ROWS = [
   ['S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
 ];
 
-export default function GameArena({ roomCode, onLeaveGame }) {
-  const { user, refreshUser } = useAuth();
+export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
+  const { user, refreshUser, updateUser } = useAuth();
   const sound = useSound();
   const { playClick, playKey, playHit, playMiss } = sound;
   const { 
@@ -103,10 +103,23 @@ export default function GameArena({ roomCode, onLeaveGame }) {
   // Refresh user balance & level when game ends
   const isGameOver = gameState?.state === 'GAME_OVER';
   useEffect(() => {
-    if (isGameOver && refreshUser) {
-      refreshUser();
+    if (isGameOver) {
+      if (gameState?.rewards && user && updateUser) {
+        const isWin = gameState.winner_id === user.id;
+        updateUser({
+          rating: isWin ? (gameState.rewards.winner_rating ?? user.rating) : (gameState.rewards.loser_rating ?? user.rating),
+          rank: isWin ? (gameState.rewards.winner_rank ?? user.rank) : (gameState.rewards.loser_rank ?? user.rank),
+          coins: isWin ? (gameState.rewards.winner_coins ?? user.coins) : (gameState.rewards.loser_coins ?? user.coins),
+          wins: isWin ? (user.wins || 0) + 1 : user.wins,
+          losses: !isWin ? (user.losses || 0) + 1 : user.losses,
+          current_streak: isWin ? (user.current_streak || 0) + 1 : 0
+        });
+      }
+      if (refreshUser) {
+        refreshUser();
+      }
     }
-  }, [isGameOver, refreshUser]);
+  }, [isGameOver, gameState?.rewards]);
 
   if (!gameState) {
     return (
@@ -820,28 +833,50 @@ export default function GameArena({ roomCode, onLeaveGame }) {
               const currentRank = isWinner 
                 ? (gameState.rewards?.winner_rank || user?.rank || 'Bronze III')
                 : (gameState.rewards?.loser_rank || user?.rank || 'Bronze III');
+              const newRating = isWinner
+                ? (gameState.rewards?.winner_rating ?? user?.rating ?? 825)
+                : (gameState.rewards?.loser_rating ?? user?.rating ?? 800);
               const ratingChange = isWinner
                 ? (gameState.rewards?.winner_rating_change ?? 25)
                 : (gameState.rewards?.loser_rating_change ?? -15);
-              const isPromoted = Boolean(gameState.rewards?.winner_promoted);
-              const streak = isWinner ? (gameState.rewards?.winner_streak || 1) : 0;
-              const meta = getRankMeta(currentRank);
+              const isPromoted = Boolean(gameState.rewards?.winner_rank_up || gameState.rewards?.winner_promoted);
+              const isDemoted = Boolean(gameState.rewards?.loser_rank_down);
+              const streak = isWinner ? (gameState.rewards?.winner_streak || user?.current_streak || 1) : 0;
+              const progress = getRankProgress(newRating);
 
               return (
                 <div style={{
                   background: 'var(--bg-surface-elevated)',
-                  border: `1px solid ${isPromoted ? 'var(--neon-emerald)' : meta.border}`,
+                  border: `1px solid ${isPromoted ? 'var(--neon-emerald)' : (isDemoted ? 'var(--neon-rose)' : progress.meta.border)}`,
                   borderRadius: 'var(--radius-md)',
-                  padding: '14px 16px',
+                  padding: '16px',
                   marginBottom: '16px',
-                  boxShadow: 'none',
                   textAlign: 'center',
                   animation: 'fadeScaleIn 0.5s ease-out'
                 }}>
                   {isPromoted && (
                     <div style={{
-                      background: 'linear-gradient(90deg, rgba(0, 230, 118, 0.2), rgba(0, 242, 254, 0.2))',
+                      background: 'linear-gradient(90deg, rgba(0, 230, 118, 0.25), rgba(0, 242, 254, 0.25))',
                       color: 'var(--neon-emerald)',
+                      fontWeight: '900',
+                      fontSize: '0.9rem',
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '12px',
+                      letterSpacing: '0.5px',
+                      boxShadow: '0 0 16px rgba(0, 230, 118, 0.35)'
+                    }}>
+                      🎉 RANK PROMOTION! Ascended to {currentRank}!
+                    </div>
+                  )}
+
+                  {isDemoted && (
+                    <div style={{
+                      background: 'rgba(255, 42, 109, 0.15)',
+                      color: 'var(--neon-rose)',
                       fontWeight: '900',
                       fontSize: '0.85rem',
                       padding: '4px 12px',
@@ -849,22 +884,21 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
-                      marginBottom: '10px',
-                      letterSpacing: '0.5px',
-                      boxShadow: '0 0 12px rgba(0, 230, 118, 0.3)'
+                      marginBottom: '12px'
                     }}>
-                      🎉 RANK PROMOTION!
+                      ⚠️ Demoted to {currentRank}
                     </div>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '1.8rem' }}>{meta.badge}</span>
+                      <span style={{ fontSize: '2rem' }}>{progress.meta.badge}</span>
                       <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontWeight: '900', fontSize: '1.05rem', color: meta.color }}>
+                        <div style={{ fontWeight: '900', fontSize: '1.1rem', color: progress.meta.color }}>
                           {currentRank}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          Competitive Division
+                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#fff' }}>{newRating} RP</span>
                         </div>
                       </div>
                     </div>
@@ -872,10 +906,10 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                       <div style={{
                         fontFamily: 'var(--font-mono)',
                         fontWeight: '900',
-                        fontSize: '1.1rem',
+                        fontSize: '1.15rem',
                         color: ratingChange > 0 ? 'var(--neon-emerald)' : 'var(--neon-rose)'
                       }}>
-                        {ratingChange > 0 ? `+${ratingChange}` : ratingChange} Rating
+                        {ratingChange > 0 ? `+${ratingChange}` : ratingChange} RP
                       </div>
                       {streak > 1 && (
                         <div style={{ fontSize: '0.75rem', color: '#ffb300', fontWeight: '800' }}>
@@ -884,6 +918,44 @@ export default function GameArena({ roomCode, onLeaveGame }) {
                       )}
                     </div>
                   </div>
+
+                  {/* Progress towards next tier */}
+                  {!progress.isMaxRank ? (
+                    <div style={{ textAlign: 'left', background: 'rgba(0,0,0,0.25)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        <span>Next: <strong style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)</span>
+                        <span style={{ fontWeight: 800, color: 'var(--neon-emerald)' }}>{progress.pointsNeeded} RP left (~{progress.estimatedWins} wins)</span>
+                      </div>
+                      <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ width: `${progress.percent}%`, height: '100%', background: progress.meta.gradient || '#00f2fe', borderRadius: '3px', transition: 'width 0.8s ease' }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.78rem', color: '#00e676', fontWeight: 800 }}>
+                      🔱 Pinnacle Grandmaster Rank!
+                    </div>
+                  )}
+
+                  {onOpenRankModal && (
+                    <div style={{ marginTop: '8px', textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={onOpenRankModal}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--neon-cyan)',
+                          fontSize: '0.74rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          padding: 0,
+                          textDecoration: 'underline'
+                        }}
+                      >
+                        View Rank Roadmap →
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })()}

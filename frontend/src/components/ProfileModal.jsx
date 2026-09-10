@@ -3,11 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { X, User, Flame, Trophy, Swords, Calendar, Clock, Award } from 'lucide-react';
-import { getRankMeta } from '../utils/rankUtils';
+import { getRankMeta, getRankProgress } from '../utils/rankUtils';
 
 const AVATARS = ['avatar-1', 'avatar-2', 'avatar-3', 'avatar-4', 'avatar-5', 'avatar-6'];
 
-export default function ProfileModal({ isOpen, onClose }) {
+export default function ProfileModal({ isOpen, onClose, onOpenRankModal }) {
   useBodyScrollLock(isOpen);
   const { user, token, updateUser, claimDailyBonus } = useAuth();
   const { playClick, playHit } = useSound();
@@ -117,8 +117,10 @@ export default function ProfileModal({ isOpen, onClose }) {
 
   const totalGames = (user.wins || 0) + (user.losses || 0);
   const winRate = totalGames > 0 ? Math.round(((user.wins || 0) / totalGames) * 100) : 0;
-  const userRank = user.rank || 'Bronze III';
-  const rankMeta = getRankMeta(userRank);
+  const currentRating = user.rating || 800;
+  const progress = getRankProgress(currentRating);
+  const userRank = progress.currentRank;
+  const rankMeta = progress.meta;
 
   return (
     <div className="modal-overlay">
@@ -142,14 +144,14 @@ export default function ProfileModal({ isOpen, onClose }) {
 
         {/* Competitive Rank & Balance Card */}
         <div style={{
-          background: 'linear-gradient(135deg, rgba(142, 45, 226, 0.15) 0%, rgba(0, 242, 254, 0.12) 100%)',
+          background: 'linear-gradient(135deg, rgba(14, 22, 38, 0.95), rgba(22, 32, 54, 0.95))',
           border: `1px solid ${rankMeta.border}`,
           borderRadius: 'var(--radius-lg)',
-          padding: '16px',
+          padding: '16px 18px',
           marginBottom: '18px',
-          boxShadow: `0 8px 24px rgba(0,0,0,0.2)`
+          boxShadow: `0 8px 24px ${rankMeta.glow}`
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{
                 background: rankMeta.bg,
@@ -168,30 +170,82 @@ export default function ProfileModal({ isOpen, onClose }) {
                 <span>{userRank}</span>
               </div>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: '800' }}>
-                  Competitive Duelist
+                <div style={{ fontSize: '0.88rem', color: 'var(--text-primary)', fontWeight: '800' }}>
+                  <span style={{ color: 'var(--neon-cyan)', fontFamily: 'var(--font-mono)' }}>{progress.rating} RP</span> (Rating)
                 </div>
                 <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
                   Best: {user.highest_rank || userRank}
                 </div>
               </div>
             </div>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'rgba(255, 179, 0, 0.18)',
-              border: '1px solid rgba(255, 179, 0, 0.4)',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontSize: '1rem',
-              fontWeight: '800',
-              color: 'var(--neon-amber)'
-            }}>
-              <span>🪙</span>
-              <span>{user.coins ?? 100} Coins</span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(255, 179, 0, 0.18)',
+                border: '1px solid rgba(255, 179, 0, 0.4)',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                fontSize: '0.95rem',
+                fontWeight: '800',
+                color: 'var(--neon-amber)'
+              }}>
+                <span>🪙</span>
+                <span>{user.coins ?? 100} Coins</span>
+              </div>
+
+              {onOpenRankModal && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '6px 10px',
+                    borderColor: rankMeta.border,
+                    color: rankMeta.color,
+                    fontWeight: 800
+                  }}
+                  onClick={() => { playClick(); onOpenRankModal(); }}
+                  title="View full rank roadmap"
+                >
+                  🏆 Ladder
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Progress Bar towards Next Rank */}
+          {!progress.isMaxRank ? (
+            <div style={{ background: 'rgba(0,0,0,0.25)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                <span>Next Division: <strong style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)</span>
+                <span style={{ fontWeight: 800, color: 'var(--neon-emerald)' }}>
+                  {progress.pointsNeeded} RP left (~{progress.estimatedWins} wins)
+                </span>
+              </div>
+              <div style={{
+                width: '100%',
+                height: '8px',
+                borderRadius: '4px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${progress.percent}%`,
+                  height: '8px',
+                  borderRadius: '4px',
+                  background: rankMeta.gradient || 'linear-gradient(90deg, #00f2fe, #00e676)',
+                  boxShadow: `0 0 10px ${rankMeta.color}`,
+                  transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+                }} />
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.8rem', color: '#00e676', fontWeight: 800, padding: '4px 0' }}>
+              🔱 Pinnacle Rank: Grandmaster Achieved!
+            </div>
+          )}
 
           {/* Daily Refill Action */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', flexWrap: 'wrap', gap: '8px' }}>

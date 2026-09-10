@@ -132,13 +132,25 @@ def clean_test_users(engine, label: str):
     print(f"[OK] {label} cleaned! Real player accounts remain intact.\n")
 
 def delete_single_user(engine, label: str, username: str):
-    print(f"\n[+] Deleting user '{username}' from {label}...")
+    print(f"\n[+] Deleting user '{username}' and related records from {label}...")
     with engine.begin() as conn:
-        res = conn.execute(text("DELETE FROM users WHERE LOWER(username) = LOWER(:u)"), {"u": username})
-        if res.rowcount > 0:
-            print(f"[OK] User '{username}' deleted from {label}.")
-        else:
+        u = conn.execute(text("SELECT id FROM users WHERE LOWER(username) = LOWER(:u)"), {"u": username}).first()
+        if not u:
             print(f"[!] User '{username}' was not found in {label}.")
+            return
+        uid = u[0]
+        # Delete dependent child rows first to satisfy foreign keys
+        conn.execute(text("DELETE FROM coin_transactions WHERE user_id = :uid"), {"uid": uid})
+        conn.execute(text("DELETE FROM guesses WHERE player_id = :uid"), {"uid": uid})
+        conn.execute(text("DELETE FROM chat_messages WHERE sender_id = :uid"), {"uid": uid})
+        conn.execute(text("DELETE FROM games WHERE player1_id = :uid OR player2_id = :uid"), {"uid": uid})
+        conn.execute(text("DELETE FROM rooms WHERE player1_id = :uid OR player2_id = :uid"), {"uid": uid})
+        conn.execute(text("DELETE FROM tournament_matches WHERE player1_id = :uid OR player2_id = :uid"), {"uid": uid})
+        conn.execute(text("DELETE FROM tournament_participants WHERE user_id = :uid"), {"uid": uid})
+        conn.execute(text("DELETE FROM friendships WHERE requester_id = :uid OR receiver_id = :uid"), {"uid": uid})
+        res = conn.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
+        if res.rowcount > 0:
+            print(f"[OK] User '{username}' (ID {uid}) and all associated match data deleted from {label}.")
 
 def main():
     args = parse_args()

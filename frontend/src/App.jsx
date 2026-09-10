@@ -17,6 +17,7 @@ import FriendsModal from './components/FriendsModal';
 import ProfileModal from './components/ProfileModal';
 import MatchmakingModal from './components/MatchmakingModal';
 import ActiveMatchModal from './components/ActiveMatchModal';
+import RankRoadmapModal from './components/RankRoadmapModal';
 import ToastContainer from './components/ToastContainer';
 
 function MainApp() {
@@ -28,6 +29,7 @@ function MainApp() {
   const [authOpen, setAuthOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [rankRoadmapOpen, setRankRoadmapOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [matchmakingOpen, setMatchmakingOpen] = useState(false);
@@ -148,7 +150,7 @@ function MainApp() {
   }
 
   const isWordSelectOpen = Boolean(user && currentRoomCode && gameState?.state === 'WORD_SELECTION');
-  const anyModalOpen = Boolean(authOpen || tutorialOpen || leaderboardOpen || friendsOpen || profileOpen || isWordSelectOpen || matchmakingOpen || activeMatch?.active);
+  const anyModalOpen = Boolean(authOpen || tutorialOpen || leaderboardOpen || rankRoadmapOpen || friendsOpen || profileOpen || isWordSelectOpen || matchmakingOpen || activeMatch?.active);
   useEffect(() => {
     if (!anyModalOpen) {
       document.body.style.overflow = '';
@@ -163,6 +165,7 @@ function MainApp() {
         onOpenAuth={() => setAuthOpen(true)}
         onOpenTutorial={() => setTutorialOpen(true)}
         onOpenLeaderboard={() => setLeaderboardOpen(true)}
+        onOpenRankModal={() => setRankRoadmapOpen(true)}
         onOpenFriends={() => setFriendsOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
         onOpenTournaments={() => {
@@ -180,6 +183,7 @@ function MainApp() {
             onOpenAuth={() => setAuthOpen(true)}
             onOpenTutorial={() => setTutorialOpen(true)}
             onOpenLeaderboard={() => setLeaderboardOpen(true)}
+            onOpenRankModal={() => setRankRoadmapOpen(true)}
             onOpenMatchmaking={() => setMatchmakingOpen(true)}
             onRoomCreated={handleRoomCreated}
             onRoomJoined={handleRoomJoined}
@@ -215,6 +219,7 @@ function MainApp() {
           <GameArena
             roomCode={currentRoomCode}
             onLeaveGame={handleLeave}
+            onOpenRankModal={() => setRankRoadmapOpen(true)}
           />
         )}
       </main>
@@ -223,6 +228,7 @@ function MainApp() {
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
       <HowToPlayModal isOpen={tutorialOpen} onClose={() => setTutorialOpen(false)} />
       <LeaderboardModal isOpen={leaderboardOpen} onClose={() => setLeaderboardOpen(false)} />
+      <RankRoadmapModal isOpen={rankRoadmapOpen} onClose={() => setRankRoadmapOpen(false)} />
       <FriendsModal
         isOpen={friendsOpen}
         onClose={() => setFriendsOpen(false)}
@@ -231,7 +237,14 @@ function MainApp() {
           connectToRoom(code);
         }}
       />
-      <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
+      <ProfileModal 
+        isOpen={profileOpen} 
+        onClose={() => setProfileOpen(false)} 
+        onOpenRankModal={() => {
+          setProfileOpen(false);
+          setRankRoadmapOpen(true);
+        }}
+      />
       <WordSelectModal isOpen={isWordSelectOpen} />
       <MatchmakingModal
         isOpen={matchmakingOpen}

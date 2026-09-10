@@ -5,10 +5,18 @@ import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
 import { useTheme } from '../context/ThemeContext';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
-import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Menu, X, AlertTriangle, Loader2, Sun, Moon } from 'lucide-react';
-import { getRankMeta } from '../utils/rankUtils';
+import { Volume2, VolumeX, Trophy, Users, BookOpen, User, LogOut, Flame, Menu, X, AlertTriangle, Loader2, Sun, Moon, Award } from 'lucide-react';
+import { getRankMeta, getRankProgress } from '../utils/rankUtils';
 
-export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, onOpenFriends, onOpenProfile, onOpenTournaments }) {
+export default function Navbar({ 
+  onOpenAuth, 
+  onOpenTutorial, 
+  onOpenLeaderboard, 
+  onOpenFriends, 
+  onOpenProfile, 
+  onOpenTournaments,
+  onOpenRankModal 
+}) {
   const { user, logout } = useAuth();
   const { isMuted, toggleMute, playClick } = useSound();
   const { leaveRoom, currentRoomCode, gameState, onlineCount } = useSocket();
@@ -20,8 +28,9 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
 
   useBodyScrollLock(showLeaveConfirm);
 
-  const userRank = user?.rank || 'Bronze III';
-  const rankMeta = getRankMeta(userRank);
+  const progress = getRankProgress(user?.rating || 800);
+  const userRank = progress.currentRank;
+  const rankMeta = progress.meta;
 
   const isMatchActive = Boolean(
     currentRoomCode && gameState?.state !== 'GAME_OVER'
@@ -164,6 +173,18 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           <span>Rules</span>
         </button>
 
+        {/* Competitive Rank Leagues */}
+        {onOpenRankModal && (
+          <button 
+            className="nav-pill-btn"
+            onClick={() => handleNavAction(onOpenRankModal)}
+            title="Competitive Leagues & Divisions"
+          >
+            <Award size={16} color="var(--neon-cyan)" />
+            <span>Leagues</span>
+          </button>
+        )}
+
         {/* Leaderboard */}
         <button 
           className="nav-pill-btn"
@@ -171,7 +192,7 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
           title="Ranked Leaderboards"
         >
           <Trophy size={16} color="#ffb300" />
-          <span>Ranks</span>
+          <span>Top</span>
         </button>
 
         {/* Friends (if logged in) */}
@@ -246,27 +267,39 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
               <div style={{ textAlign: 'left' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>{user.username}</span>
-                  <span style={{
-                    background: rankMeta.bg,
-                    color: rankMeta.color,
-                    border: `1px solid ${rankMeta.border}`,
-                    fontSize: '0.68rem',
-                    padding: '1px 6px',
-                    borderRadius: '8px',
-                    fontWeight: '800',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '3px'
-                  }}>
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenRankModal) onOpenRankModal();
+                    }}
+                    style={{
+                      background: rankMeta.bg,
+                      color: rankMeta.color,
+                      border: `1px solid ${rankMeta.border}`,
+                      fontSize: '0.68rem',
+                      padding: '1px 6px',
+                      borderRadius: '8px',
+                      fontWeight: '800',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      cursor: onOpenRankModal ? 'pointer' : 'default'
+                    }}
+                    title="Click to view competitive divisions & level progress"
+                  >
                     {rankMeta.badge} {userRank}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', color: 'var(--neon-amber)' }}>
+                  <span style={{ color: 'var(--neon-cyan)', fontWeight: '800', fontFamily: 'var(--font-mono)' }}>
+                    {progress.rating} RP
+                  </span>
+                  <span style={{ color: 'var(--text-muted)' }}>•</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                     <Flame size={11} fill="currentColor" /> {user.current_streak || 0}
                   </span>
                   <span style={{ color: 'var(--text-muted)' }}>•</span>
-                  <span style={{ color: 'var(--neon-cyan)', fontWeight: '700' }}>⚔️ {user.wins || 0}W</span>
+                  <span style={{ color: 'var(--neon-emerald)', fontWeight: '700' }}>⚔️ {user.wins || 0}W</span>
                 </div>
               </div>
             </div>
@@ -410,6 +443,13 @@ export default function Navbar({ onOpenAuth, onOpenTutorial, onOpenLeaderboard, 
             <BookOpen size={20} color="var(--neon-cyan)" />
             <span>How to Play & Rules</span>
           </button>
+
+          {onOpenRankModal && (
+            <button className="mobile-nav-item" onClick={() => handleNavAction(onOpenRankModal)}>
+              <Award size={20} color="var(--neon-cyan)" />
+              <span>Competitive Leagues & Rank Ladder</span>
+            </button>
+          )}
 
           <button className="mobile-nav-item" onClick={() => handleNavAction(onOpenLeaderboard)}>
             <Trophy size={20} color="#ffb300" />
