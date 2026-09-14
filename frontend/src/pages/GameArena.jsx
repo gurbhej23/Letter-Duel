@@ -929,7 +929,7 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
                           {currentRank}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#fff' }}>{newRating} RP</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--text-primary)' }}>{newRating} RP</span>
                         </div>
                       </div>
                     </div>
@@ -952,12 +952,12 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
 
                   {/* Progress towards next tier */}
                   {!progress.isMaxRank ? (
-                    <div style={{ textAlign: 'left', background: 'rgba(0,0,0,0.25)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                    <div className="rank-target-pill" style={{ textAlign: 'left', padding: '10px 12px', borderRadius: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
                         <span>Next: <strong style={{ color: progress.nextMeta?.color }}>{progress.nextRank}</strong> ({progress.nextThreshold} RP)</span>
                         <span style={{ fontWeight: 800, color: 'var(--neon-emerald)' }}>{progress.pointsNeeded} RP left (~{progress.estimatedWins} wins)</span>
                       </div>
-                      <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div className="rank-progress-track" style={{ height: '6px', borderRadius: '3px' }}>
                         <div style={{ width: `${progress.percent}%`, height: '100%', background: progress.meta.gradient || '#00f2fe', borderRadius: '3px', transition: 'width 0.8s ease' }} />
                       </div>
                     </div>
@@ -1008,7 +1008,7 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Your Secret Word:</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', color: '#fff' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '800', color: 'var(--text-primary)' }}>
                   {gameState.my_word}
                 </span>
               </div>
@@ -1035,7 +1035,7 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Updated Balance:</span>
-                <span style={{ fontWeight: '800', color: '#00f2fe' }}>
+                <span style={{ fontWeight: '800', color: 'var(--neon-cyan)' }}>
                   🪙 {isWinner ? (gameState.rewards?.winner_coins ?? user?.coins) : (gameState.rewards?.loser_coins ?? user?.coins)} Coins
                 </span>
               </div>
