@@ -289,8 +289,8 @@ def test_clue_hint_only_without_random_reveals():
     p2_revealed = p2_view["initial_revealed_letters"]
     assert len(p2_revealed) == 0
     assert p2_view["opponent_mask"] == ["_"] * 11
-    # Bob should see the auto definition / clue for TRANQUILITY
-    assert "peace" in p2_view["opponent_hint"].lower() or "calm" in p2_view["opponent_hint"].lower()
+    # Alice did not provide a clue -> Bob sees NO automatic clue (empty string)
+    assert p2_view["opponent_hint"] == ""
 
     # Players guess letters guided by the clue
     if game.current_turn_player_id == 10:

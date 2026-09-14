@@ -171,7 +171,7 @@ export default function WordSelectModal({ isOpen }) {
                 maxLength={90}
                 value={hint}
                 onChange={(e) => setHint(e.target.value)}
-                placeholder="e.g. state of calm and serenity (or leave blank for dictionary clue)"
+                placeholder="Optional: e.g. state of calm and serenity"
                 style={{
                   width: '100%',
                   padding: '11px 14px',
@@ -187,7 +187,7 @@ export default function WordSelectModal({ isOpen }) {
                 onBlur={(e) => e.target.style.borderColor = 'var(--border-subtle)'}
               />
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '5px' }}>
-                Opponent will see this clue beside your word's letter blanks! Leave empty to auto-fetch dictionary definition.
+                Opponent will only see a clue if you manually enter one here. Leave blank for no clue/hint.
               </div>
             </div>
 

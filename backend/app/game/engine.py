@@ -202,19 +202,17 @@ class LetterDuelGame:
         self.secret_words[player_id] = clean_word
         self.word_lengths[player_id] = len(clean_word)
 
-        # Store hint: use provided custom hint or fallback to dictionary definition
+        # Store hint: only use manually provided hint; do not auto-generate hints
         custom_hint = hint.strip() if hint else ""
-        if not custom_hint:
-            custom_hint = get_word_definition(clean_word)
         self.word_hints[player_id] = custom_hint
 
-        # If opponent is a bot and hasn't locked yet, auto-select a bot word and definition
+        # If opponent is a bot and hasn't locked yet, auto-select a bot word (no auto-hint)
         if self.is_bot_opponent and self.player2_id and self.player2_id not in self.secret_words:
             bot_words = ["CASTLE", "DRAGON", "GUITAR", "HORIZON", "PLANET", "SILVER", "WARRIOR", "DIAMOND"]
             bot_choice = random.choice(bot_words)
             self.secret_words[self.player2_id] = bot_choice
             self.word_lengths[self.player2_id] = len(bot_choice)
-            self.word_hints[self.player2_id] = get_word_definition(bot_choice)
+            self.word_hints[self.player2_id] = ""
 
         # Check if both players have locked words
         if len(self.secret_words) == 2:
@@ -590,7 +588,7 @@ class LetterDuelGame:
             bot_choice = random.choice(bot_words)
             self.secret_words[self.player2_id] = bot_choice
             self.word_lengths[self.player2_id] = len(bot_choice)
-            self.word_hints[self.player2_id] = get_word_definition(bot_choice)
+            self.word_hints[self.player2_id] = ""
 
     def get_player_view(self, viewer_player_id: int) -> dict:
         """

@@ -335,7 +335,7 @@ async def start_bot_match(
         bot_word = random.choice(valid_words) if valid_words else "DRAGON"
         session.game.secret_words[99999] = bot_word
         session.game.word_lengths[99999] = len(bot_word)
-        session.game.word_hints[99999] = get_word_definition(bot_word)
+        session.game.word_hints[99999] = ""
 
         # Bot is immediately ready
         session.game.ready_players.add(current_user.id)
