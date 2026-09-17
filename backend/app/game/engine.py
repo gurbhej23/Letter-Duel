@@ -581,6 +581,7 @@ class LetterDuelGame:
         self.winner_id = None
         self.win_reason = None
         self.rematch_votes.clear()
+        self.rewards = None
 
         # If opponent is bot, immediately pre-assign fresh bot secret word
         if self.is_bot_opponent and self.player2_id:

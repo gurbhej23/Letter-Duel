@@ -213,3 +213,8 @@ export function getRankProgress(rating = 800) {
     nextMeta: getRankMeta(nextRank)
   };
 }
+
+export function getRankUnlock(rankString = "Bronze III") {
+  const t = RANK_THRESHOLDS.find(x => x.rank === rankString);
+  return t ? t.arenaUnlock : null;
+}

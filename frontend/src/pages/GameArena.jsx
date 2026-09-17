@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSound } from '../context/SoundContext';
 import { useSocket } from '../context/SocketContext';
-import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart, Lightbulb, X, UserPlus } from 'lucide-react';
-import { getRankMeta, getRankProgress } from '../utils/rankUtils';
+import { Swords, Trophy, Send, AlertTriangle, RefreshCw, Flag, LogOut, MessageSquare, Flame, Check, HelpCircle, Clock, Heart, Lightbulb, X, UserPlus, Sparkles, ChevronRight } from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { getRankMeta, getRankProgress, getRankTierIndex, calculateRankFromRating, getRankUnlock } from '../utils/rankUtils';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
 const ALPHABET_ROWS = [
@@ -43,6 +44,11 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
   const lastBeepedSecRef = useRef(null);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
   const [sendingFriendReq, setSendingFriendReq] = useState(false);
+
+  // Rank Ascension celebratory modal
+  const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [promotionData, setPromotionData] = useState(null);
+  const celebratedMatchRef = useRef(null);
 
   const handleAddOpponentFriend = async () => {
     if (!opponent?.username || !token) return;
@@ -145,12 +151,73 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
           losses: !isWin ? (user.losses || 0) + 1 : user.losses,
           current_streak: isWin ? (user.current_streak || 0) + 1 : 0
         });
+
+        // Trigger celebratory rank ascension animation if promoted
+        if (isWin) {
+          const oldRank = gameState.rewards.winner_old_rank || user.rank || 'Bronze III';
+          const newRank = gameState.rewards.winner_rank || calculateRankFromRating(gameState.rewards.winner_rating || user.rating || 800);
+          const isRankPromoted = Boolean(
+            gameState.rewards.winner_rank_up || 
+            gameState.rewards.winner_promoted || 
+            (getRankTierIndex(newRank) > getRankTierIndex(oldRank))
+          );
+
+          if (isRankPromoted) {
+            const matchCelebrationKey = `${roomCode}_${gameState.id || gameState.state_version || newRank}_${gameState.rewards.winner_rating}`;
+            if (celebratedMatchRef.current !== matchCelebrationKey) {
+              celebratedMatchRef.current = matchCelebrationKey;
+              setPromotionData({
+                oldRank,
+                newRank,
+                rating: gameState.rewards.winner_rating ?? user.rating,
+                delta: gameState.rewards.winner_rating_change ?? 25,
+                coinsWon: gameState.rewards.winner_coins_won ?? 10,
+                streak: gameState.rewards.winner_streak || user.current_streak || 1,
+                arenaUnlock: getRankUnlock(newRank)
+              });
+              setShowPromotionModal(true);
+
+              try {
+                confetti({
+                  particleCount: 110,
+                  spread: 85,
+                  origin: { y: 0.55 },
+                  colors: ['#00e676', '#00f2fe', '#ffd700', '#ffffff']
+                });
+                setTimeout(() => {
+                  confetti({
+                    particleCount: 75,
+                    angle: 60,
+                    spread: 60,
+                    origin: { x: 0.08, y: 0.62 },
+                    colors: ['#00e676', '#ffd700']
+                  });
+                  confetti({
+                    particleCount: 75,
+                    angle: 120,
+                    spread: 60,
+                    origin: { x: 0.92, y: 0.62 },
+                    colors: ['#00f2fe', '#ff007f']
+                  });
+                }, 280);
+              } catch (e) {
+                console.error("Confetti trigger error", e);
+              }
+
+              if (sound?.playVictory) {
+                sound.playVictory();
+              }
+            }
+          }
+        }
       }
       if (refreshUser) {
         refreshUser();
       }
+    } else {
+      setShowPromotionModal(false);
     }
-  }, [isGameOver, gameState?.rewards]);
+  }, [isGameOver, gameState?.rewards, gameState?.id, gameState?.state_version]);
 
   if (!gameState) {
     return (
@@ -886,21 +953,38 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
                   animation: 'fadeScaleIn 0.5s ease-out'
                 }}>
                   {isPromoted && (
-                    <div style={{
-                      background: 'linear-gradient(90deg, rgba(0, 230, 118, 0.25), rgba(0, 242, 254, 0.25))',
-                      color: 'var(--neon-emerald)',
-                      fontWeight: '900',
-                      fontSize: '0.9rem',
-                      padding: '6px 14px',
-                      borderRadius: '20px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      marginBottom: '12px',
-                      letterSpacing: '0.5px',
-                      boxShadow: '0 0 16px rgba(0, 230, 118, 0.35)'
-                    }}>
-                      🎉 RANK PROMOTION! Ascended to {currentRank}!
+                    <div 
+                      onClick={() => {
+                        setPromotionData({
+                          oldRank: gameState.rewards?.winner_old_rank || user?.rank || 'Bronze III',
+                          newRank: currentRank,
+                          rating: newRating,
+                          delta: ratingChange,
+                          coinsWon: gameState.rewards?.winner_coins_won || 10,
+                          streak: streak,
+                          arenaUnlock: getRankUnlock(currentRank)
+                        });
+                        setShowPromotionModal(true);
+                      }}
+                      style={{
+                        background: 'linear-gradient(90deg, rgba(0, 230, 118, 0.25), rgba(0, 242, 254, 0.25))',
+                        color: 'var(--neon-emerald)',
+                        fontWeight: '900',
+                        fontSize: '0.9rem',
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '12px',
+                        letterSpacing: '0.5px',
+                        boxShadow: '0 0 16px rgba(0, 230, 118, 0.35)',
+                        cursor: 'pointer',
+                        border: '1px solid rgba(0, 230, 118, 0.4)'
+                      }}
+                      title="Click to view full rank celebration"
+                    >
+                      <Sparkles size={16} /> RANK PROMOTION! Ascended to {currentRank}!
                     </div>
                   )}
 
@@ -1095,6 +1179,96 @@ export default function GameArena({ roomCode, onLeaveGame, onOpenRankModal }) {
                     ? (opponentVotedRematch ? 'Rematch Starting...' : 'Rematch Voted (Waiting...)')
                     : (opponentVotedRematch ? 'Accept Rematch!' : 'Request Rematch')}
                 </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Celebratory Rank Ascension Modal */}
+      {showPromotionModal && promotionData && (
+        <div className="rank-ascend-overlay" onClick={() => setShowPromotionModal(false)}>
+          <div className="rank-ascend-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="rank-ascend-beams" />
+            <div className="rank-ascend-content">
+              <div className="rank-ascend-tag">
+                <Sparkles size={14} /> Rank Up Achieved
+              </div>
+              <h2 className="rank-ascend-title">
+                Division Promoted!
+              </h2>
+              <p className="rank-ascend-subtitle">
+                Victory has elevated your competitive standing!
+              </p>
+
+              {/* Badges transition flow */}
+              <div className="rank-ascend-showcase">
+                <div className="rank-badge-prev">
+                  <span style={{ fontSize: '2.2rem' }}>
+                    {getRankMeta(promotionData.oldRank)?.badge || '🥉'}
+                  </span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    {promotionData.oldRank}
+                  </span>
+                </div>
+
+                <div className="rank-badge-arrow">
+                  <ChevronRight size={22} />
+                </div>
+
+                <div className="rank-badge-curr">
+                  <div 
+                    className="rank-emblem-large"
+                    style={{
+                      background: getRankMeta(promotionData.newRank)?.bg || 'rgba(0, 230, 118, 0.2)',
+                      borderColor: getRankMeta(promotionData.newRank)?.border || '#00e676'
+                    }}
+                  >
+                    {getRankMeta(promotionData.newRank)?.badge || '🏆'}
+                  </div>
+                  <span style={{ 
+                    fontSize: '1.15rem', 
+                    fontWeight: 900, 
+                    color: getRankMeta(promotionData.newRank)?.color || '#00e676' 
+                  }}>
+                    {promotionData.newRank}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stats details */}
+              <div className="rank-ascend-details">
+                <div className="rank-ascend-row">
+                  <span>New Rating</span>
+                  <span style={{ fontWeight: 800, color: 'var(--neon-emerald)', fontFamily: 'var(--font-mono)' }}>
+                    {promotionData.rating} RP (+{promotionData.delta} RP)
+                  </span>
+                </div>
+                {promotionData.arenaUnlock && (
+                  <div className="rank-ascend-row">
+                    <span>Arena Unlocked</span>
+                    <span style={{ fontWeight: 800, color: 'var(--neon-cyan)' }}>
+                      {promotionData.arenaUnlock}
+                    </span>
+                  </div>
+                )}
+                <div className="rank-ascend-row">
+                  <span>Match Earnings</span>
+                  <span style={{ fontWeight: 800, color: '#ffd700', fontFamily: 'var(--font-mono)' }}>
+                    +{promotionData.coinsWon} Coins
+                  </span>
+                </div>
+              </div>
+
+              <button 
+                type="button"
+                className="rank-ascend-confirm-btn"
+                onClick={() => {
+                  playClick();
+                  setShowPromotionModal(false);
+                }}
+              >
+                Awesome! Continue Duels
               </button>
             </div>
           </div>

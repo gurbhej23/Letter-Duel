@@ -1987,3 +1987,333 @@ textarea::placeholder {
   border-color: var(--neon-cyan) !important;
   box-shadow: 0 0 12px rgba(2, 132, 199, 0.18) !important;
 }
+
+/* ==========================================================================
+   Competitive Rank Ascension Celebration & Animation
+   ========================================================================== */
+
+@keyframes rankAscendFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rankModalSpringIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.65) translateY(40px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes rankRaysSpin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes rankBadgeAscend {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-15deg);
+    filter: drop-shadow(0 0 0px transparent);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.25) rotate(6deg);
+    filter: drop-shadow(0 0 35px #00e676);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.08) rotate(0deg);
+    filter: drop-shadow(0 0 22px #00f2fe);
+  }
+}
+
+@keyframes rankFloatGlow {
+  0% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.04);
+  }
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes rankArrowPulse {
+  0%, 100% {
+    transform: translateX(0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateX(6px) scale(1.2);
+    opacity: 1;
+    color: #00e676;
+  }
+}
+
+@keyframes rankCelebrationPulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(0, 230, 118, 0.35), 0 0 50px rgba(0, 242, 254, 0.2);
+    border-color: rgba(0, 230, 118, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(0, 230, 118, 0.65), 0 0 80px rgba(0, 242, 254, 0.4);
+    border-color: rgba(0, 242, 254, 0.9);
+  }
+}
+
+.rank-ascend-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(5, 10, 24, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: rankAscendFadeIn 0.35s ease-out forwards;
+}
+
+.rank-ascend-modal {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: linear-gradient(155deg, rgba(14, 22, 42, 0.97), rgba(8, 14, 28, 0.99));
+  border: 1.5px solid rgba(0, 230, 118, 0.5);
+  border-radius: 26px;
+  padding: 34px 26px 26px 26px;
+  text-align: center;
+  box-shadow: 0 25px 65px rgba(0, 0, 0, 0.75), 0 0 40px rgba(0, 230, 118, 0.25);
+  overflow: hidden;
+  animation: rankModalSpringIn 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, rankCelebrationPulse 3.5s infinite ease-in-out;
+}
+
+.rank-ascend-beams {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: 480px;
+  height: 480px;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(0, 230, 118, 0.14) 40deg,
+    transparent 80deg,
+    rgba(0, 242, 254, 0.16) 130deg,
+    transparent 180deg,
+    rgba(255, 215, 0, 0.12) 230deg,
+    transparent 280deg,
+    rgba(0, 230, 118, 0.14) 330deg,
+    transparent 360deg
+  );
+  animation: rankRaysSpin 14s linear infinite;
+  pointer-events: none;
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.rank-ascend-content {
+  position: relative;
+  z-index: 2;
+}
+
+.rank-ascend-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 30px;
+  background: linear-gradient(90deg, rgba(0, 230, 118, 0.22), rgba(0, 242, 254, 0.22));
+  border: 1px solid rgba(0, 230, 118, 0.5);
+  color: #00e676;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  box-shadow: 0 0 16px rgba(0, 230, 118, 0.3);
+}
+
+.rank-ascend-title {
+  font-family: var(--font-display);
+  font-size: 1.95rem;
+  font-weight: 900;
+  line-height: 1.15;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #ffffff 15%, #00f2fe 55%, #00e676 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
+}
+
+.rank-ascend-subtitle {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  margin-bottom: 22px;
+}
+
+.rank-ascend-showcase {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.rank-badge-prev {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.55;
+  filter: grayscale(0.2);
+  transform: scale(0.9);
+}
+
+.rank-badge-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(0, 242, 254, 0.12);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  color: var(--neon-cyan);
+  animation: rankArrowPulse 1.4s infinite ease-in-out;
+}
+
+.rank-badge-curr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: rankBadgeAscend 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.rank-emblem-large {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.8rem;
+  box-shadow: 0 0 28px rgba(0, 230, 118, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  animation: rankFloatGlow 2.8s infinite ease-in-out;
+}
+
+.rank-ascend-details {
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+  text-align: left;
+}
+
+.rank-ascend-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rank-ascend-row:last-child {
+  border-bottom: none;
+}
+
+.rank-ascend-confirm-btn {
+  width: 100%;
+  padding: 14px 22px;
+  font-size: 1rem;
+  font-weight: 800;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #00e676, #00f2fe);
+  color: #031024;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(0, 230, 118, 0.45);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  letter-spacing: 0.5px;
+}
+
+.rank-ascend-confirm-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 35px rgba(0, 230, 118, 0.65);
+}
+
+/* Light Theme overrides for Rank Ascension Celebration */
+[data-theme="light"] .rank-ascend-overlay {
+  background: rgba(15, 23, 42, 0.65);
+}
+
+[data-theme="light"] .rank-ascend-modal {
+  background: #ffffff !important;
+  border: 1.5px solid rgba(16, 185, 129, 0.4) !important;
+  box-shadow: 0 25px 65px rgba(15, 23, 42, 0.22), 0 0 35px rgba(16, 185, 129, 0.2) !important;
+}
+
+[data-theme="light"] .rank-ascend-beams {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(16, 185, 129, 0.12) 40deg,
+    transparent 80deg,
+    rgba(2, 132, 199, 0.12) 130deg,
+    transparent 180deg,
+    rgba(245, 158, 11, 0.1) 230deg,
+    transparent 280deg,
+    rgba(16, 185, 129, 0.12) 330deg,
+    transparent 360deg
+  ) !important;
+}
+
+[data-theme="light"] .rank-ascend-title {
+  background: linear-gradient(135deg, #0f172a 15%, #0284c7 65%, #059669 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .rank-ascend-subtitle {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .rank-ascend-details {
+  background: #f8fafc !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .rank-ascend-row {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  color: #334155 !important;
+}
+
+[data-theme="light"] .rank-badge-arrow {
+  background: rgba(2, 132, 199, 0.1) !important;
+  border-color: rgba(2, 132, 199, 0.3) !important;
+  color: #0284c7 !important;
+}

@@ -150,3 +150,59 @@ def test_match_settlement_coin_and_rank_outcome():
         assert rewards["loser_coins_lost"] == 10
         assert "winner_rank" in rewards
         assert "winner_rating_change" in rewards
+
+def test_rematch_settlement_allows_rank_promotion():
+    from app.game.engine import LetterDuelGame
+    from app.websocket.handler import persist_game_end_to_db
+
+    # Create Winner at 850 rating (close to Bronze II threshold 867)
+    w_token, w_id = create_test_user("winner_promoted", coins=500, rank="Bronze III", rating=850)
+    l_token, l_id = create_test_user("loser_promoted", coins=500, rank="Bronze III", rating=850)
+
+    entry_fee = 10
+    code = room_manager.create_room(allow_custom_words=True, is_private=True, entry_fee=entry_fee)
+    session = room_manager.get_room(code)
+
+    # --- Match 1 ---
+    game1 = LetterDuelGame(room_code=code, player1_id=w_id, player1_username="Winner", allow_custom_words=True)
+    game1.add_player2(l_id, "Loser")
+    game1.state = "WORD_SELECTION"
+    game1.lock_word(w_id, "APPLE")
+    game1.lock_word(l_id, "BERRY")
+    session.game = game1
+
+    ok, _, _ = game1.guess_full_word(w_id, "BERRY")
+    assert ok is True
+    assert game1.state == "GAME_OVER"
+
+    with SessionLocal() as db:
+        persist_game_end_to_db(session, db)
+        w_user1 = db.query(User).filter(User.id == w_id).first()
+        assert w_user1.rating >= 867, f"Expected rating >= 867, got {w_user1.rating}"
+        assert w_user1.rank == "Bronze II"
+        assert w_user1.wins == 1
+        assert session.game.rewards["winner_rank_up"] is True
+        assert session.game.rewards["winner_rank"] == "Bronze II"
+        rating_after_match1 = w_user1.rating
+
+    # --- Match 2 (Rematch in same room_code) ---
+    session.game.reset_for_rematch()
+    assert session.game.rewards is None
+    assert session.game.state == "WORD_SELECTION"
+    session.game.lock_word(w_id, "GRAPE")
+    session.game.lock_word(l_id, "PEACH")
+
+    ok2, _, _ = session.game.guess_full_word(w_id, "PEACH")
+    assert ok2 is True
+    assert session.game.state == "GAME_OVER"
+
+    with SessionLocal() as db:
+        persist_game_end_to_db(session, db)
+        w_user2 = db.query(User).filter(User.id == w_id).first()
+        # Rematch must NOT be skipped as duplicate
+        assert w_user2.rating > rating_after_match1, "Rematch failed to award rating"
+        assert w_user2.wins == 2, "Rematch failed to increment wins"
+        assert w_user2.coins == 520, "Rematch failed to award coins"
+        assert session.game.rewards is not None
+        assert session.game.rewards["winner_coins_won"] == 10
+

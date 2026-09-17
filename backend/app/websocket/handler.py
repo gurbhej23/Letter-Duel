@@ -443,16 +443,17 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
     db.add(db_game)
     db.flush()
 
-    # Check if match has already been settled (idempotency guard)
+    # Check if match has already been settled (idempotency guard per unique game ID)
     from app.models.coin_transaction import CoinTransaction
     from app.game.ranks import calculate_rank_from_rating, calculate_rating_change, get_rank_tier_index
 
+    match_ref = f"{session.room_code}_g{db_game.id}"
     existing_tx = db.query(CoinTransaction).filter(
-        CoinTransaction.reference_id == session.room_code,
+        CoinTransaction.reference_id == match_ref,
         CoinTransaction.transaction_type == "MATCH_VICTORY"
     ).first()
     if existing_tx:
-        logger.info(f"[Settlement] Room {session.room_code} already settled; skipping duplicate reward.")
+        logger.info(f"[Settlement] Game {match_ref} already settled; skipping duplicate reward.")
         return
 
     # Update player stats & awards
@@ -482,7 +483,7 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
         if winner.current_streak > winner.best_streak:
             winner.best_streak = winner.current_streak
 
-        old_winner_rank = winner.rank or "Bronze III"
+        old_winner_rank = winner.rank or calculate_rank_from_rating(winner.rating or 800)
         win_delta, new_winner_rating = calculate_rating_change(
             is_winner=True,
             current_rating=winner.rating or 800,
@@ -502,7 +503,7 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
             amount=entry_fee,
             balance_after=winner.coins,
             transaction_type="MATCH_VICTORY",
-            reference_id=session.room_code
+            reference_id=match_ref
         )
         db.add(win_tx)
 
@@ -517,7 +518,7 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
         loser.coins = max(0, (loser.coins or 100) - entry_fee)
         loser.current_streak = 0
 
-        old_loser_rank = loser.rank or "Bronze III"
+        old_loser_rank = loser.rank or calculate_rank_from_rating(loser.rating or 800)
         loss_delta, new_loser_rating = calculate_rating_change(
             is_winner=False,
             current_rating=loser.rating or 800,
@@ -534,7 +535,7 @@ def persist_game_end_to_db(session: RoomSession, db: Session):
             amount=-entry_fee,
             balance_after=loser.coins,
             transaction_type="ARENA_ENTRY_FEE",
-            reference_id=session.room_code
+            reference_id=match_ref
         )
         db.add(loss_tx)
 
